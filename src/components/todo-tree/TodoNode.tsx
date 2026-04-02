@@ -22,8 +22,28 @@ export function TodoNode({
   node: TreeNode
   depth?: number
 }) {
-  const { setTree, editingId, setEditingId, setZoom } = useTodoCtx()
+  const { tree, setTree, editingId, setEditingId, setZoom } = useTodoCtx()
   const [dropPos, setDropPos] = useState<DropPosition | null>(null)
+
+  const findBreadcrumbPath = (
+    nodes: TreeNode[],
+    targetId: string,
+    path: { id: string; text: string }[] = [],
+  ): { id: string; text: string }[] | null => {
+    for (const candidate of nodes) {
+      const nextPath = [...path, { id: candidate.id, text: candidate.text }]
+      if (candidate.id === targetId) {
+        return nextPath
+      }
+
+      const found = findBreadcrumbPath(candidate.children, targetId, nextPath)
+      if (found) {
+        return found
+      }
+    }
+
+    return null
+  }
 
   const hasKids = node.children.length > 0
   const { done, total, isLeaf } = getProgress(node)
@@ -253,9 +273,12 @@ export function TodoNode({
             <button
               className="act zoom"
               title="Zoom in"
-              onClick={() =>
-                setZoom((prev) => [...prev, { id: node.id, text: node.text }])
-              }
+              onClick={() => {
+                const nextZoom = findBreadcrumbPath(tree, node.id)
+                if (nextZoom) {
+                  setZoom(nextZoom)
+                }
+              }}
             >
               +
             </button>
