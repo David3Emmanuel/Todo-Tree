@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 
 export const Route = createFileRoute('/')({ component: App })
 
@@ -31,6 +31,14 @@ type CtxValue = {
   zoom: Breadcrumb[]
   setZoom: React.Dispatch<React.SetStateAction<Breadcrumb[]>>
 }
+
+type PersistedState = {
+  tree: TreeNode[]
+  zoom: Breadcrumb[]
+  view: 'tree' | 'harvest'
+}
+
+const STORAGE_KEY = 'todo-tree-state'
 
 const uid = () => Math.random().toString(36).slice(2, 9)
 const dc = <T,>(obj: T): T => JSON.parse(JSON.stringify(obj)) as T
@@ -260,6 +268,36 @@ function moveN(
 
   insert(clone)
   return clone
+}
+
+function loadPersistedState(): PersistedState {
+  if (typeof window === 'undefined') {
+    return { tree: INIT, zoom: [], view: 'tree' }
+  }
+
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    if (!raw) {
+      return { tree: INIT, zoom: [], view: 'tree' }
+    }
+
+    const parsed = JSON.parse(raw) as Partial<PersistedState>
+    return {
+      tree: Array.isArray(parsed.tree) ? (parsed.tree as TreeNode[]) : INIT,
+      zoom: Array.isArray(parsed.zoom) ? (parsed.zoom as Breadcrumb[]) : [],
+      view: parsed.view === 'harvest' ? 'harvest' : 'tree',
+    }
+  } catch {
+    return { tree: INIT, zoom: [], view: 'tree' }
+  }
+}
+
+function savePersistedState(state: PersistedState): void {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
 }
 
 const Ctx = createContext<CtxValue | null>(null)
@@ -715,10 +753,15 @@ const INIT: TreeNode[] = [
 ]
 
 function App() {
-  const [tree, setTree] = useState<TreeNode[]>(INIT)
+  const initialState = loadPersistedState()
+  const [tree, setTree] = useState<TreeNode[]>(initialState.tree)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [zoom, setZoom] = useState<Breadcrumb[]>([])
-  const [view, setView] = useState<'tree' | 'harvest'>('tree')
+  const [zoom, setZoom] = useState<Breadcrumb[]>(initialState.zoom)
+  const [view, setView] = useState<'tree' | 'harvest'>(initialState.view)
+
+  useEffect(() => {
+    savePersistedState({ tree, zoom, view })
+  }, [tree, zoom, view])
 
   const zoomedNode = zoom.length
     ? findNode(tree, zoom[zoom.length - 1].id)
