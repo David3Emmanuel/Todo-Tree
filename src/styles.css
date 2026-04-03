@@ -627,6 +627,44 @@ body,
   padding: 0.25rem 0.4rem;
 }
 
+.auth-form {
+  gap: 1rem;
+}
+
+.auth-input {
+  padding: 0.625rem;
+}
+
+.auth-shell {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0;
+}
+
+.auth-shell .auth-form {
+  border: 0.0625rem solid #1d1b1a;
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(207, 125, 60, 0.08),
+      transparent 42%
+    ),
+    linear-gradient(165deg, rgba(21, 20, 19, 0.96), rgba(14, 13, 12, 0.98));
+}
+
+@media (min-width: 901px) {
+  .auth-shell {
+    width: min(34rem, calc(100% - 2.25rem));
+    margin-inline: auto;
+    padding: 1rem 0;
+  }
+}
+
 @media (max-width: 900px) {
   .suggestions-grid {
     grid-template-columns: 1fr;
