@@ -8,15 +8,17 @@ import { TodoCtx } from './todo-context'
 import { TodoNode } from './TodoNode'
 import { usePersistence } from './usePersistence'
 import { useZoomSync } from './useZoomSync'
-import type { Breadcrumb, CtxValue } from './types'
+import type { Breadcrumb, CtxValue, TreeNode } from './types'
 import {
-  findNode,
-  getAllStarred,
-  getNextActionSuggestions,
-  makeNode,
-  upd,
   collapseAll,
   expandAll,
+  findNode,
+  getAllStarred,
+  getProgress,
+  getNextActionSuggestions,
+  makeNode,
+  toggleTree,
+  upd,
 } from './tree-utils'
 
 function formatDateInputValue(date: Date): string {
@@ -56,6 +58,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [hideMenuId, setHideMenuId] = useState<string | null>(null)
   const [hideUntilDate, setHideUntilDate] = useState('')
+  const [focusRootId, setFocusRootId] = useState<string | null>(null)
   const pendingEditingIdRef = useRef<string | null>(null)
   const suggestionSeedRef = useRef(Math.random().toString(36).slice(2))
 
@@ -91,6 +94,36 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     pendingEditingIdRef.current = null
     setEditingId(nextEditingId)
   }, [tree])
+
+  const focusRoot = useMemo(
+    () => (focusRootId ? findNode(tree, focusRootId) : null),
+    [tree, focusRootId],
+  )
+
+  useEffect(() => {
+    if (!focusRootId) {
+      return
+    }
+
+    if (!focusRoot) {
+      setFocusRootId(null)
+    }
+  }, [focusRoot, focusRootId])
+
+  useEffect(() => {
+    if (!focusRoot) {
+      return
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFocusRootId(null)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [focusRoot])
 
   const suggestions = useMemo(() => {
     const now = suggestionTick
@@ -137,9 +170,50 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   }
 
   const focusSuggestion = (path: Breadcrumb[], nodeId: string) => {
+    void path
     setHideMenuId(null)
-    setZoomFromUi(path.slice(0, -1))
-    setEditingId(nodeId)
+    setFocusRootId(nodeId)
+  }
+
+  const renderFocusNode = (node: TreeNode, depth = 0) => {
+    const isFolder = node.kind === 'folder'
+    const { done, total } = getProgress(node)
+    const allDone = !isFolder && total > 0 && done === total
+    const someDone = !isFolder && !allDone && done > 0
+
+    return (
+      <div key={node.id} className="focus-node-wrap">
+        <div className="focus-node" style={{ paddingLeft: `${depth * 18}px` }}>
+          <button
+            className={`check${isFolder ? ' folder' : ''}${allDone ? ' done' : someDone ? ' part' : ''}`}
+            onClick={() =>
+              !isFolder && setTree((prev) => toggleTree(prev, node.id))
+            }
+            disabled={isFolder}
+            title={isFolder ? 'Category (not completable)' : undefined}
+          >
+            {isFolder ? '∞' : allDone ? '✓' : someDone ? '-' : ''}
+          </button>
+          <div className="focus-node-text-wrap">
+            <div
+              className={`focus-node-text${isFolder ? ' folder' : ''}${allDone ? ' done' : ''}`}
+            >
+              {node.text || 'Untitled task'}
+            </div>
+            {node.children.length > 0 && (
+              <div className="focus-node-meta">
+                {done}/{total} complete
+              </div>
+            )}
+          </div>
+        </div>
+        {node.children.length > 0 && (
+          <div>
+            {node.children.map((child) => renderFocusNode(child, depth + 1))}
+          </div>
+        )}
+      </div>
+    )
   }
 
   const hideSuggestion = (nodeId: string, until: number) => {
@@ -438,6 +512,39 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
                 <span className="key">☑</span> toggle category
               </div>
             </div>
+
+            {focusRoot && (
+              <div
+                className="focus-modal-backdrop"
+                onClick={() => setFocusRootId(null)}
+              >
+                <section
+                  className="focus-modal island-shell"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Focused subtree"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="focus-modal-head">
+                    <div>
+                      <div className="suggestions-kicker">Focus</div>
+                      <h2 className="focus-modal-title">
+                        {focusRoot.text || 'Untitled task'}
+                      </h2>
+                    </div>
+                    <button
+                      className="tab"
+                      onClick={() => setFocusRootId(null)}
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="focus-modal-body">
+                    {renderFocusNode(focusRoot)}
+                  </div>
+                </section>
+              </div>
+            )}
           </>
         )}
       </div>
