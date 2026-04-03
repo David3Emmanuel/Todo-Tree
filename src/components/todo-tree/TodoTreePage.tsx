@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useAuth } from '../auth/auth-context'
+import { BrandHeader } from '../layout/BrandHeader'
+import { LoadingScreen } from '../layout/LoadingScreen'
 import { HarvestView } from './HarvestView'
 import { loadPersistedState, savePersistedState } from './persistence'
 import { TodoCtx } from './todo-context'
@@ -253,28 +255,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   }, [activeSuggestionHides, suggestionTick, tree])
 
   if (isHydrating) {
-    return (
-      <div className="app">
-        <header className="header">
-          <div className="brand">
-            <span className="brand-icon">⬡</span>
-            <div>
-              <div className="brand-name">TodoTree</div>
-              <div className="brand-sub">
-                Infinite hierarchy · Focused execution
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="main loading-main">
-          <div className="loading-shell">
-            <div className="loading-spinner" />
-            <div className="loading-copy">Loading your tree...</div>
-          </div>
-        </main>
-      </div>
-    )
+    return <LoadingScreen message="Loading your tree..." />
   }
 
   if (!isAuthenticated) {
@@ -282,28 +263,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   }
 
   if (!isReady) {
-    return (
-      <div className="app">
-        <header className="header">
-          <div className="brand">
-            <span className="brand-icon">⬡</span>
-            <div>
-              <div className="brand-name">TodoTree</div>
-              <div className="brand-sub">
-                Infinite hierarchy · Focused execution
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <main className="main loading-main">
-          <div className="loading-shell">
-            <div className="loading-spinner" />
-            <div className="loading-copy">Loading your tree...</div>
-          </div>
-        </main>
-      </div>
-    )
+    return <LoadingScreen message="Loading your tree..." />
   }
 
   const zoomedNode = zoom.length
@@ -373,15 +333,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     <TodoCtx.Provider value={ctx}>
       <div className="app">
         <header className="header">
-          <div className="brand">
-            <span className="brand-icon">⬡</span>
-            <div>
-              <div className="brand-name">TodoTree</div>
-              <div className="brand-sub">
-                Infinite hierarchy · Focused execution
-              </div>
-            </div>
-          </div>
+          <BrandHeader />
           <div className="tabs">
             <button
               className={`tab${view === 'tree' ? ' active' : ''}`}

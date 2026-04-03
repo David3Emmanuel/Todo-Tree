@@ -2,6 +2,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../components/auth/auth-context'
+import { BrandHeader } from '../components/layout/BrandHeader'
 
 type AuthMode = 'login' | 'register'
 
@@ -26,15 +27,7 @@ function AuthPage() {
   return (
     <div className="app">
       <header className="header">
-        <div className="brand">
-          <span className="brand-icon">⬡</span>
-          <div>
-            <div className="brand-name">TodoTree</div>
-            <div className="brand-sub">
-              Infinite hierarchy · Focused execution
-            </div>
-          </div>
-        </div>
+        <BrandHeader />
         <div className="tabs">
           <button
             type="button"
