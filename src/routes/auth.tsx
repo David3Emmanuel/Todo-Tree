@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../components/auth/auth-context'
 
 type AuthMode = 'login' | 'register'
 
@@ -10,12 +11,17 @@ export const Route = createFileRoute('/auth')({
 
 function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login')
-  const { login, register } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { login, register, isAuthenticated, isHydrating } = useAuth()
   const navigate = useNavigate()
 
   const isLogin = mode === 'login'
+
+  useEffect(() => {
+    if (isHydrating || !isAuthenticated) return
+    navigate({ to: '/' })
+  }, [isAuthenticated, isHydrating, navigate])
 
   return (
     <div className="app">
@@ -34,7 +40,7 @@ function AuthPage() {
             type="button"
             className={`tab${isLogin ? ' active' : ''}`}
             onClick={() => setMode('login')}
-disabled={isSubmitting}
+            disabled={isSubmitting}
           >
             Login
           </button>
@@ -42,7 +48,7 @@ disabled={isSubmitting}
             type="button"
             className={`tab${!isLogin ? ' active' : ''}`}
             onClick={() => setMode('register')}
-disabled={isSubmitting}
+            disabled={isSubmitting}
           >
             Register
           </button>
