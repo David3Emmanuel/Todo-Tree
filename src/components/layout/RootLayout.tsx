@@ -1,5 +1,10 @@
 import { Outlet } from '@tanstack/react-router'
+import { AuthProvider } from '../auth/auth-context'
 
 export function RootLayout() {
-  return <Outlet />
+  return (
+    <AuthProvider>
+      <Outlet />
+    </AuthProvider>
+  )
 }
