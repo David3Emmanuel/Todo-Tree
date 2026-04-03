@@ -7,7 +7,8 @@ import { HarvestView } from './HarvestView'
 import { TodoCtx } from './todo-context'
 import { TodoNode } from './TodoNode'
 import { usePersistence } from './usePersistence'
-import type { Breadcrumb, CtxValue, TreeNode } from './types'
+import { useZoomSync } from './useZoomSync'
+import type { Breadcrumb, CtxValue } from './types'
 import {
   findNode,
   getAllStarred,
@@ -17,43 +18,6 @@ import {
   collapseAll,
   expandAll,
 } from './tree-utils'
-
-function resolveZoomFromSegments(
-  tree: TreeNode[],
-  segments: string[],
-): Breadcrumb[] {
-  const zoom: Breadcrumb[] = []
-  let level = tree
-
-  for (const segment of segments) {
-    const node = level.find((candidate) => candidate.id === segment)
-    if (!node) {
-      break
-    }
-
-    zoom.push({ id: node.id, text: node.text })
-    level = node.children
-  }
-
-  return zoom
-}
-
-function isSameZoom(a: Breadcrumb[], b: Breadcrumb[]): boolean {
-  if (a.length !== b.length) return false
-
-  for (let index = 0; index < a.length; index += 1) {
-    if (a[index].id !== b[index].id || a[index].text !== b[index].text) {
-      return false
-    }
-  }
-
-  return true
-}
-
-function toBreadcrumbPath(zoom: Breadcrumb[]): string {
-  if (!zoom.length) return '/'
-  return `/${zoom.map((crumb) => encodeURIComponent(crumb.id)).join('/')}`
-}
 
 function formatDateInputValue(date: Date): string {
   const year = date.getFullYear()
@@ -92,23 +56,21 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [hideMenuId, setHideMenuId] = useState<string | null>(null)
   const [hideUntilDate, setHideUntilDate] = useState('')
-  const zoomSyncSourceRef = useRef<'path' | 'ui' | null>(null)
   const pendingEditingIdRef = useRef<string | null>(null)
   const suggestionSeedRef = useRef(Math.random().toString(36).slice(2))
 
   const navigate = useNavigate()
   const location = useLocation()
-  const pathKey = useMemo(() => pathSegments.join('/'), [pathSegments])
-  const resolvedZoomFromPath = useMemo(
-    () => resolveZoomFromSegments(tree, pathSegments),
-    [tree, pathKey, pathSegments],
-  )
-  const zoomPath = useMemo(() => toBreadcrumbPath(zoom), [zoom])
-
-  const setZoomFromUi: typeof setZoom = (value) => {
-    zoomSyncSourceRef.current = 'ui'
-    setZoom(value)
-  }
+  const { setZoomFromUi } = useZoomSync({
+    isAuthenticated,
+    isReady,
+    tree,
+    zoom,
+    setZoom,
+    pathSegments,
+    locationPathname: location.pathname,
+    navigate,
+  })
 
   useEffect(() => {
     if (isHydrating || isAuthenticated || location.pathname === '/auth') {
@@ -121,34 +83,6 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   }, [isAuthenticated, isHydrating, location.pathname, navigate])
 
   useEffect(() => {
-    if (!isAuthenticated || !isReady) {
-      return
-    }
-
-    if (location.pathname === zoomPath) {
-      if (zoomSyncSourceRef.current === 'ui') {
-        zoomSyncSourceRef.current = null
-      }
-      return
-    }
-
-    if (zoomSyncSourceRef.current === 'ui') {
-      return
-    }
-
-    zoomSyncSourceRef.current = 'path'
-    setZoom((prev) =>
-      isSameZoom(prev, resolvedZoomFromPath) ? prev : resolvedZoomFromPath,
-    )
-  }, [
-    isAuthenticated,
-    isReady,
-    location.pathname,
-    zoomPath,
-    resolvedZoomFromPath,
-  ])
-
-  useEffect(() => {
     if (!pendingEditingIdRef.current) {
       return
     }
@@ -157,36 +91,6 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     pendingEditingIdRef.current = null
     setEditingId(nextEditingId)
   }, [tree])
-
-  useEffect(() => {
-    if (!isReady) {
-      return
-    }
-
-    if (
-      zoomSyncSourceRef.current === 'path' &&
-      !isSameZoom(zoom, resolvedZoomFromPath)
-    ) {
-      return
-    }
-
-    const nextPath = toBreadcrumbPath(zoom)
-    if (location.pathname !== nextPath) {
-      navigate({ to: nextPath, replace: true })
-      return
-    }
-
-    if (zoomSyncSourceRef.current === 'path') {
-      zoomSyncSourceRef.current = null
-    }
-  }, [
-    isAuthenticated,
-    isReady,
-    zoom,
-    resolvedZoomFromPath,
-    location.pathname,
-    navigate,
-  ])
 
   const suggestions = useMemo(() => {
     const now = suggestionTick
