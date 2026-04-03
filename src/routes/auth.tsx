@@ -12,6 +12,7 @@ function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login')
   const { login, register } = useAuth()
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const navigate = useNavigate()
 
   const isLogin = mode === 'login'
@@ -33,6 +34,7 @@ function AuthPage() {
             type="button"
             className={`tab${isLogin ? ' active' : ''}`}
             onClick={() => setMode('login')}
+disabled={isSubmitting}
           >
             Login
           </button>
@@ -40,6 +42,7 @@ function AuthPage() {
             type="button"
             className={`tab${!isLogin ? ' active' : ''}`}
             onClick={() => setMode('register')}
+disabled={isSubmitting}
           >
             Register
           </button>
@@ -105,6 +108,8 @@ function AuthPage() {
                     ? authError.message
                     : 'Unable to sign in.',
                 )
+              } finally {
+                setIsSubmitting(false)
               }
             }}
           >
@@ -117,6 +122,7 @@ function AuthPage() {
                   autoComplete="username"
                   required
                   className="suggestion-hide-input auth-input"
+                  disabled={isSubmitting}
                 />
               </label>
             ) : null}
@@ -129,6 +135,7 @@ function AuthPage() {
                 autoComplete="email"
                 required
                 className="suggestion-hide-input auth-input"
+                disabled={isSubmitting}
               />
             </label>
 
@@ -140,6 +147,7 @@ function AuthPage() {
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
                 className="suggestion-hide-input auth-input"
+                disabled={isSubmitting}
               />
             </label>
 
@@ -152,15 +160,21 @@ function AuthPage() {
                   autoComplete="new-password"
                   required
                   className="suggestion-hide-input auth-input"
+                  disabled={isSubmitting}
                 />
               </label>
             ) : null}
 
-            <button type="submit" className="btn-start mt-1">
-              {isLogin ? 'Login' : 'Register'}
             {error ? (
               <div className="suggestions-note text-(--danger)">{error}</div>
             ) : null}
+
+            <button
+              type="submit"
+              className="btn-start mt-1"
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? 'Please wait...' : isLogin ? 'Login' : 'Register'}
             </button>
           </form>
         </section>
