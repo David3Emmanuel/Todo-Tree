@@ -1,5 +1,5 @@
 {
-  "name": "todo-tree",
+  "name": "todo-tree-frontend",
   "private": true,
   "type": "module",
   "imports": {
@@ -47,7 +47,8 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild",
-      "lightningcss"
+      "lightningcss",
+      "unrs-resolver"
     ]
   }
 }
