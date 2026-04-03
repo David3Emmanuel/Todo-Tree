@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 
 type AuthMode = 'login' | 'register'
 
@@ -9,6 +10,9 @@ export const Route = createFileRoute('/auth')({
 
 function AuthPage() {
   const [mode, setMode] = useState<AuthMode>('login')
+  const { login, register } = useAuth()
+  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
 
   const isLogin = mode === 'login'
 
@@ -59,10 +63,64 @@ function AuthPage() {
 
           <form
             className="suggestion-hide-menu auth-form"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault()
+
+              const formData = new FormData(event.currentTarget)
+              const email = String(formData.get('email') ?? '').trim()
+              const password = String(formData.get('password') ?? '')
+              const confirmPassword = String(
+                formData.get('confirmPassword') ?? '',
+              )
+              const username = String(formData.get('username') ?? '').trim()
+
+              if (!email || !password) {
+                setError('Email and password are required.')
+                return
+              }
+
+              if (!isLogin && password !== confirmPassword) {
+                setError('Passwords do not match.')
+                return
+              }
+
+              setIsSubmitting(true)
+              setError(null)
+
+              try {
+                if (isLogin) {
+                  await login({ identifier: email, password })
+                } else {
+                  await register({
+                    username: username || email.split('@')[0],
+                    email,
+                    password,
+                  })
+                }
+
+                await navigate({ to: '/' })
+              } catch (authError) {
+                setError(
+                  authError instanceof Error
+                    ? authError.message
+                    : 'Unable to sign in.',
+                )
+              }
             }}
           >
+            {!isLogin ? (
+              <label className="suggestion-hide-row flex-col gap-1">
+                <span className="suggestion-title">Username</span>
+                <input
+                  type="text"
+                  name="username"
+                  autoComplete="username"
+                  required
+                  className="suggestion-hide-input auth-input"
+                />
+              </label>
+            ) : null}
+
             <label className="suggestion-hide-row flex-col gap-1">
               <span className="suggestion-title">Email</span>
               <input
@@ -100,6 +158,9 @@ function AuthPage() {
 
             <button type="submit" className="btn-start mt-1">
               {isLogin ? 'Login' : 'Register'}
+            {error ? (
+              <div className="suggestions-note text-(--danger)">{error}</div>
+            ) : null}
             </button>
           </form>
         </section>
