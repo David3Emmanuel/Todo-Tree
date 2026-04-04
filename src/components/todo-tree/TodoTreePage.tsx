@@ -133,16 +133,6 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   })
 
   useEffect(() => {
-    if (isHydrating || isAuthenticated || location.pathname === '/auth') {
-      return
-    }
-
-    void navigate({ to: '/auth', replace: true }).catch(() => {
-      window.location.replace('/auth')
-    })
-  }, [isAuthenticated, isHydrating, location.pathname, navigate])
-
-  useEffect(() => {
     if (!pendingEditingIdRef.current) {
       return
     }
@@ -301,10 +291,6 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
 
   if (isHydrating) {
     return <LoadingScreen message="Loading your tree..." />
-  }
-
-  if (!isAuthenticated) {
-    return null
   }
 
   if (!isReady) {

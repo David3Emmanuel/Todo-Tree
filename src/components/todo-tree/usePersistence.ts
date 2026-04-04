@@ -108,15 +108,6 @@ export function usePersistence(
   useEffect(() => {
     let isCancelled = false
 
-    if (!isAuthenticated) {
-      setIsReady(false)
-      setServerUpdatedAtMs(undefined)
-      lastSyncedFingerprintRef.current = ''
-      return () => {
-        isCancelled = true
-      }
-    }
-
     setIsReady(false)
 
     void (async () => {
@@ -139,7 +130,7 @@ export function usePersistence(
       })
       setIsReady(true)
 
-      if (!jwt) {
+      if (!isAuthenticated || !jwt) {
         return
       }
 
@@ -190,7 +181,7 @@ export function usePersistence(
   )
 
   useEffect(() => {
-    if (!isAuthenticated || !isReady) {
+    if (!isReady) {
       return
     }
 
@@ -203,15 +194,7 @@ export function usePersistence(
     }).catch(() => {
       // Offline-first behavior should not block editing on persistence errors.
     })
-  }, [
-    isAuthenticated,
-    isReady,
-    tree,
-    zoom,
-    view,
-    activeSuggestionHides,
-    serverUpdatedAtMs,
-  ])
+  }, [isReady, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
 
   useEffect(() => {
     if (!isAuthenticated || !isReady || !jwt) {
