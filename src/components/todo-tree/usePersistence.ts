@@ -28,6 +28,7 @@ const REMOTE_SYNC_DEBOUNCE_MS = 1200
 type LoginReconcileClassification =
   | 'local-empty_remote-nonempty'
   | 'remote-empty_local-nonempty'
+  | 'local-clean_remote-diverged'
   | 'no-divergence'
   | 'divergence-conflict'
 
@@ -126,6 +127,14 @@ function classifyLoginReconcileState(
     return 'no-divergence'
   }
 
+  // If local still matches the last successful sync, prefer remote updates.
+  if (
+    localState.lastSyncedFingerprint &&
+    localState.lastSyncedFingerprint === localFingerprint
+  ) {
+    return 'local-clean_remote-diverged'
+  }
+
   return 'divergence-conflict'
 }
 
@@ -167,7 +176,6 @@ export function usePersistence(
   const [loginReconcileConflict, setLoginReconcileConflict] =
     useState<LoginReconcileConflict | null>(null)
   const lastSyncedFingerprintRef = useRef<string>('')
-  const previousIsAuthenticatedRef = useRef<boolean>(isAuthenticated)
   const reconciledLoginKeyRef = useRef<string>('')
   const loginRemoteSnapshotRef = useRef<RemotePersistedState | null>(null)
   const loginLocalSnapshotRef = useRef<PersistedState | null>(null)
@@ -213,10 +221,6 @@ export function usePersistence(
   )
 
   useEffect(() => {
-    const didLoginTransition =
-      !previousIsAuthenticatedRef.current && isAuthenticated
-    previousIsAuthenticatedRef.current = isAuthenticated
-
     if (!isAuthenticated || !isReady || !jwt) {
       if (!isAuthenticated) {
         reconciledLoginKeyRef.current = ''
@@ -230,7 +234,7 @@ export function usePersistence(
       return
     }
 
-    if (!didLoginTransition || reconciledLoginKeyRef.current === jwt) {
+    if (reconciledLoginKeyRef.current === jwt) {
       return
     }
 
@@ -318,7 +322,10 @@ export function usePersistence(
 
     void (async () => {
       try {
-        if (classification === 'local-empty_remote-nonempty') {
+        if (
+          classification === 'local-empty_remote-nonempty' ||
+          classification === 'local-clean_remote-diverged'
+        ) {
           const remoteFingerprint = buildStateFingerprint(remote.state)
           lastSyncedFingerprintRef.current = remoteFingerprint
 
