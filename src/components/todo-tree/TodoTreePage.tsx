@@ -13,6 +13,7 @@ import {
   ChevronsUp,
   EyeOff,
   FolderTree,
+  LogIn,
   LogOut,
   Minus,
   Plus,
@@ -722,16 +723,25 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
                 </button>
               </>
             )}
+            {isAuthenticated ? (
             <button
               className="tab"
               onClick={() => {
                 logout()
-                navigate({ to: '/auth' })
+                  if (typeof window !== 'undefined') {
+                    window.location.assign('/auth')
+                  }
               }}
             >
               <LogOut className="icon-xs" aria-hidden="true" />
               Logout
             </button>
+            ) : (
+              <a className="tab" href="/auth">
+                <LogIn className="icon-xs" aria-hidden="true" />
+                Login
+              </a>
+            )}
           </div>
         </header>
 
@@ -744,14 +754,9 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
               </p>
             </div>
             <div className="guest-save-actions">
-              <button
-                className="guest-save-login-btn"
-                onClick={() => {
-                  void navigate({ to: '/auth' })
-                }}
-              >
+              <a className="guest-save-login-btn" href="/auth">
                 Sign in to sync
-              </button>
+              </a>
               <button
                 className="guest-save-dismiss-btn"
                 onClick={() => {
