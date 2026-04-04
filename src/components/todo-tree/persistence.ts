@@ -86,6 +86,15 @@ function normalizePersistedState(value: unknown): PersistedState {
     suggestionHides?: unknown
   }
 
+  const localUpdatedAtMs = Number(parsed.localUpdatedAtMs)
+  const lastSyncedFingerprint =
+    typeof parsed.lastSyncedFingerprint === 'string'
+      ? parsed.lastSyncedFingerprint.trim()
+      : ''
+  const lastSyncedUserId =
+    typeof parsed.lastSyncedUserId === 'string'
+      ? parsed.lastSyncedUserId.trim()
+      : ''
   const serverUpdatedAtMs = Number(parsed.serverUpdatedAtMs)
 
   return {
@@ -96,6 +105,12 @@ function normalizePersistedState(value: unknown): PersistedState {
     zoom: Array.isArray(parsed.zoom) ? (parsed.zoom as Breadcrumb[]) : [],
     view: parsed.view === 'harvest' ? 'harvest' : 'tree',
     suggestionHides: normalizeSuggestionHides(parsed.suggestionHides),
+    localUpdatedAtMs:
+      Number.isFinite(localUpdatedAtMs) && localUpdatedAtMs > 0
+        ? localUpdatedAtMs
+        : undefined,
+    lastSyncedFingerprint: lastSyncedFingerprint || undefined,
+    lastSyncedUserId: lastSyncedUserId || undefined,
     serverUpdatedAtMs:
       Number.isFinite(serverUpdatedAtMs) && serverUpdatedAtMs > 0
         ? serverUpdatedAtMs

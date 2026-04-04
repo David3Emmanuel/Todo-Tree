@@ -44,5 +44,8 @@ export type PersistedState = {
   zoom: Breadcrumb[]
   view: ViewMode
   suggestionHides: SuggestionHideMap
+  localUpdatedAtMs?: number
+  lastSyncedFingerprint?: string
+  lastSyncedUserId?: string
   serverUpdatedAtMs?: number
 }
