@@ -103,6 +103,17 @@ function normalizePersistedState(value: unknown): PersistedState {
   }
 }
 
+function normalizeSyncablePersistedState(
+  value: SyncablePersistedState,
+): SyncablePersistedState {
+  return {
+    tree: normalizeTree(value.tree),
+    zoom: Array.isArray(value.zoom) ? value.zoom : [],
+    view: value.view === 'harvest' ? 'harvest' : 'tree',
+    suggestionHides: normalizeSuggestionHides(value.suggestionHides),
+  }
+}
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
@@ -200,10 +211,12 @@ async function writeStateToIndexedDb(state: PersistedState): Promise<void> {
     return
   }
 
+  const normalizedState = normalizePersistedState(state)
+
   await new Promise<void>((resolve, reject) => {
     const transaction = db.transaction(STORE_NAME, 'readwrite')
     const store = transaction.objectStore(STORE_NAME)
-    store.put(state, STATE_KEY)
+    store.put(normalizedState, STATE_KEY)
 
     transaction.oncomplete = () => {
       db.close()
@@ -278,6 +291,8 @@ export async function saveRemotePersistedState(
   jwt: string,
   state: SyncablePersistedState,
 ): Promise<RemotePersistedState | null> {
+  const normalizedState = normalizeSyncablePersistedState(state)
+
   const response = await fetch(`${API_BASE_URL}/api/todo-trees/me`, {
     method: 'PUT',
     headers: {
@@ -286,7 +301,7 @@ export async function saveRemotePersistedState(
     },
     body: JSON.stringify({
       data: {
-        content: state,
+        content: normalizedState,
       },
     }),
   })
