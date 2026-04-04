@@ -103,7 +103,10 @@ export function usePersistence(
   >(undefined)
   const [suggestionHides, setSuggestionHides] = useState<SuggestionHideMap>({})
   const [suggestionTick, setSuggestionTick] = useState(() => Date.now())
+  const [isLoginReconciling, setIsLoginReconciling] = useState(false)
   const lastSyncedFingerprintRef = useRef<string>('')
+  const previousIsAuthenticatedRef = useRef<boolean>(isAuthenticated)
+  const reconciledLoginKeyRef = useRef<string>('')
 
   useEffect(() => {
     let isCancelled = false
@@ -122,26 +125,64 @@ export function usePersistence(
       setSuggestionHides(persisted.suggestionHides ?? {})
       setServerUpdatedAtMs(persisted.serverUpdatedAtMs)
       setSuggestionTick(Date.now())
-      lastSyncedFingerprintRef.current = JSON.stringify({
-        tree: persisted.tree,
-        zoom: persisted.zoom,
-        view: persisted.view,
-        suggestionHides: persisted.suggestionHides,
-      })
+      lastSyncedFingerprintRef.current =
+        persisted.lastSyncedFingerprint ??
+        JSON.stringify({
+          tree: persisted.tree,
+          zoom: persisted.zoom,
+          view: persisted.view,
+          suggestionHides: persisted.suggestionHides,
+        })
       setIsReady(true)
+    })()
 
-      if (!isAuthenticated || !jwt) {
-        return
+    return () => {
+      isCancelled = true
+    }
+  }, [isAuthenticated, jwt])
+
+  const activeSuggestionHides = useMemo(
+    () => pruneSuggestionHides(suggestionHides, tree, suggestionTick),
+    [suggestionHides, tree, suggestionTick],
+  )
+
+  useEffect(() => {
+    const didLoginTransition =
+      !previousIsAuthenticatedRef.current && isAuthenticated
+    previousIsAuthenticatedRef.current = isAuthenticated
+
+    if (!isAuthenticated || !isReady || !jwt) {
+      if (!isAuthenticated) {
+        reconciledLoginKeyRef.current = ''
+        setIsLoginReconciling(false)
       }
+      return
+    }
 
+    if (!didLoginTransition || reconciledLoginKeyRef.current === jwt) {
+      return
+    }
+
+    let isCancelled = false
+    setIsLoginReconciling(true)
+
+    void (async () => {
       try {
         const remote = await fetchRemotePersistedState(jwt)
         if (!remote || isCancelled) {
           return
         }
 
-        const localServerUpdatedAtMs = persisted.serverUpdatedAtMs ?? 0
-        const localHasContent = hasAnyPersistedContent(persisted)
+        const localState: PersistedState = {
+          tree,
+          zoom,
+          view,
+          suggestionHides: activeSuggestionHides,
+          serverUpdatedAtMs,
+        }
+
+        const localServerUpdatedAtMs = localState.serverUpdatedAtMs ?? 0
+        const localHasContent = hasAnyPersistedContent(localState)
         const shouldApplyRemote =
           localServerUpdatedAtMs > 0
             ? remote.serverUpdatedAtMs > localServerUpdatedAtMs
@@ -157,28 +198,44 @@ export function usePersistence(
         setSuggestionHides(remote.state.suggestionHides)
         setServerUpdatedAtMs(remote.state.serverUpdatedAtMs)
         setSuggestionTick(Date.now())
-        lastSyncedFingerprintRef.current = JSON.stringify({
+
+        const nextFingerprint = JSON.stringify({
           tree: remote.state.tree,
           zoom: remote.state.zoom,
           view: remote.state.view,
           suggestionHides: remote.state.suggestionHides,
         })
+        lastSyncedFingerprintRef.current = nextFingerprint
 
-        await savePersistedState(remote.state)
+        await savePersistedState({
+          ...remote.state,
+          lastSyncedFingerprint: nextFingerprint,
+        })
       } catch {
-        // Continue using local IndexedDB state if remote refresh fails.
+        // Reconciliation failures should not block local usage.
+      } finally {
+        if (isCancelled) {
+          return
+        }
+
+        reconciledLoginKeyRef.current = jwt
+        setIsLoginReconciling(false)
       }
     })()
 
     return () => {
       isCancelled = true
     }
-  }, [isAuthenticated, jwt])
-
-  const activeSuggestionHides = useMemo(
-    () => pruneSuggestionHides(suggestionHides, tree, suggestionTick),
-    [suggestionHides, tree, suggestionTick],
-  )
+  }, [
+    isAuthenticated,
+    isReady,
+    jwt,
+    tree,
+    zoom,
+    view,
+    activeSuggestionHides,
+    serverUpdatedAtMs,
+  ])
 
   useEffect(() => {
     if (!isReady) {
@@ -190,6 +247,8 @@ export function usePersistence(
       zoom,
       view,
       suggestionHides: activeSuggestionHides,
+      localUpdatedAtMs: Date.now(),
+      lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
       serverUpdatedAtMs,
     }).catch(() => {
       // Offline-first behavior should not block editing on persistence errors.
@@ -197,7 +256,7 @@ export function usePersistence(
   }, [isReady, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
 
   useEffect(() => {
-    if (!isAuthenticated || !isReady || !jwt) {
+    if (!isAuthenticated || !isReady || !jwt || isLoginReconciling) {
       return
     }
 
@@ -234,7 +293,16 @@ export function usePersistence(
     }, REMOTE_SYNC_DEBOUNCE_MS)
 
     return () => window.clearTimeout(timeoutId)
-  }, [isAuthenticated, isReady, jwt, tree, zoom, view, activeSuggestionHides])
+  }, [
+    isAuthenticated,
+    isReady,
+    jwt,
+    tree,
+    zoom,
+    view,
+    activeSuggestionHides,
+    isLoginReconciling,
+  ])
 
   useEffect(() => {
     const activeExpiryTimes = Object.values(activeSuggestionHides)
