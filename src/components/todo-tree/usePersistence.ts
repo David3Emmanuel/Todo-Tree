@@ -10,6 +10,7 @@ import {
 import {
   fetchRemotePersistedState,
   loadPersistedState,
+  type RemotePersistedState,
   saveRemotePersistedState,
   savePersistedState,
 } from './persistence'
@@ -104,9 +105,13 @@ export function usePersistence(
   const [suggestionHides, setSuggestionHides] = useState<SuggestionHideMap>({})
   const [suggestionTick, setSuggestionTick] = useState(() => Date.now())
   const [isLoginReconciling, setIsLoginReconciling] = useState(false)
+  const [hasPendingLoginRemoteSnapshot, setHasPendingLoginRemoteSnapshot] =
+    useState(false)
   const lastSyncedFingerprintRef = useRef<string>('')
   const previousIsAuthenticatedRef = useRef<boolean>(isAuthenticated)
   const reconciledLoginKeyRef = useRef<string>('')
+  const loginRemoteSnapshotRef = useRef<RemotePersistedState | null>(null)
+  const loginLocalSnapshotRef = useRef<PersistedState | null>(null)
 
   useEffect(() => {
     let isCancelled = false
@@ -154,6 +159,9 @@ export function usePersistence(
     if (!isAuthenticated || !isReady || !jwt) {
       if (!isAuthenticated) {
         reconciledLoginKeyRef.current = ''
+        loginRemoteSnapshotRef.current = null
+        loginLocalSnapshotRef.current = null
+        setHasPendingLoginRemoteSnapshot(false)
         setIsLoginReconciling(false)
       }
       return
@@ -168,51 +176,26 @@ export function usePersistence(
 
     void (async () => {
       try {
-        const remote = await fetchRemotePersistedState(jwt)
-        if (!remote || isCancelled) {
-          return
-        }
-
         const localState: PersistedState = {
           tree,
           zoom,
           view,
           suggestionHides: activeSuggestionHides,
+          localUpdatedAtMs: Date.now(),
+          lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
           serverUpdatedAtMs,
         }
+        loginLocalSnapshotRef.current = localState
 
-        const localServerUpdatedAtMs = localState.serverUpdatedAtMs ?? 0
-        const localHasContent = hasAnyPersistedContent(localState)
-        const shouldApplyRemote =
-          localServerUpdatedAtMs > 0
-            ? remote.serverUpdatedAtMs > localServerUpdatedAtMs
-            : !localHasContent
-
-        if (!shouldApplyRemote) {
+        const remote = await fetchRemotePersistedState(jwt)
+        if (isCancelled) {
           return
         }
 
-        setTree(remote.state.tree)
-        setZoom(remote.state.zoom)
-        setView(remote.state.view)
-        setSuggestionHides(remote.state.suggestionHides)
-        setServerUpdatedAtMs(remote.state.serverUpdatedAtMs)
-        setSuggestionTick(Date.now())
-
-        const nextFingerprint = JSON.stringify({
-          tree: remote.state.tree,
-          zoom: remote.state.zoom,
-          view: remote.state.view,
-          suggestionHides: remote.state.suggestionHides,
-        })
-        lastSyncedFingerprintRef.current = nextFingerprint
-
-        await savePersistedState({
-          ...remote.state,
-          lastSyncedFingerprint: nextFingerprint,
-        })
+        loginRemoteSnapshotRef.current = remote
+        setHasPendingLoginRemoteSnapshot(Boolean(remote))
       } catch {
-        // Reconciliation failures should not block local usage.
+        // Reconciliation fetch failures should not block local usage.
       } finally {
         if (isCancelled) {
           return
@@ -256,7 +239,13 @@ export function usePersistence(
   }, [isReady, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
 
   useEffect(() => {
-    if (!isAuthenticated || !isReady || !jwt || isLoginReconciling) {
+    if (
+      !isAuthenticated ||
+      !isReady ||
+      !jwt ||
+      isLoginReconciling ||
+      hasPendingLoginRemoteSnapshot
+    ) {
       return
     }
 
@@ -302,6 +291,7 @@ export function usePersistence(
     view,
     activeSuggestionHides,
     isLoginReconciling,
+    hasPendingLoginRemoteSnapshot,
   ])
 
   useEffect(() => {
