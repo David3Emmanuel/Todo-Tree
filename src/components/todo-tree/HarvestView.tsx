@@ -3,14 +3,12 @@ import { useTodoCtx } from './todo-context'
 import { getAllStarred, getProgress, toggleTree, upd } from './tree-utils'
 import { HarvestFocusModal } from './HarvestFocusModal'
 import { useFocus } from './useFocus'
+import { FocusNode } from './FocusNode'
 
 export function HarvestView() {
   const { tree, setTree } = useTodoCtx()
   const items = getAllStarred(tree)
-  const { focusRoot, openFocus, closeFocus, renderFocusNode } = useFocus({
-    tree,
-    setTree,
-  })
+  const { focusRoot, openFocus, closeFocus } = useFocus({ tree })
 
   if (!items.length) {
     return (
@@ -109,7 +107,7 @@ export function HarvestView() {
 
       {focusRoot && (
         <HarvestFocusModal focusRoot={focusRoot} onClose={closeFocus}>
-          {renderFocusNode(focusRoot)}
+          <FocusNode node={focusRoot} setTree={setTree} />
         </HarvestFocusModal>
       )}
     </div>

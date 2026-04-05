@@ -31,6 +31,7 @@ import { BrandHeader } from '../layout/BrandHeader'
 import { LoadingScreen } from '../layout/LoadingScreen'
 import { HarvestFocusModal } from './HarvestFocusModal'
 import { HarvestView } from './HarvestView'
+import { FocusNode } from './FocusNode'
 import { HideUntilTaskPicker } from './HideUntilTaskPicker'
 import { TodoCtx } from './todo-context'
 import { TodoNode } from './TodoNode'
@@ -156,10 +157,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
   const guestReminderDismissedAtRef = useRef<number | null>(null)
   const guestReminderEditCountRef = useRef(0)
   const guestReminderLastFingerprintRef = useRef<string>('')
-  const { focusRoot, openFocus, closeFocus, renderFocusNode } = useFocus({
-    tree,
-    setTree,
-  })
+  const { focusRoot, openFocus, closeFocus } = useFocus({ tree })
 
   const navigate = useNavigate()
   const location = useLocation()
@@ -799,12 +797,6 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
                       </div>
                       <div className="suggestion-card-face suggestion-card-back">
                         <div className="suggestion-back-copy">
-                          {/* <div className="suggestion-back-title">
-                            Hidden for undo
-                          </div> */}
-                          {/* <div className="suggestion-back-note">
-                            Click undo within 1 second to keep it in view.
-                          </div> */}
                           <button
                             className="suggestion-undo-btn"
                             onClick={(event) => {
@@ -977,7 +969,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
 
             {focusRoot && (
               <HarvestFocusModal focusRoot={focusRoot} onClose={closeFocus}>
-                {renderFocusNode(focusRoot)}
+                <FocusNode node={focusRoot} setTree={setTree} />
               </HarvestFocusModal>
             )}
 
