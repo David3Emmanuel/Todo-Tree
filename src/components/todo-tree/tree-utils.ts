@@ -140,22 +140,37 @@ function mulberry32(seed: number): () => number {
   }
 }
 
+function urgencyRank(urgency: TreeNode['urgency']): number {
+  if (urgency === 'today') return 2
+  if (urgency === 'soon') return 1
+  return 0
+}
+
+function effectiveUrgency(
+  own: TreeNode['urgency'],
+  inherited: TreeNode['urgency'],
+): TreeNode['urgency'] {
+  return urgencyRank(own) >= urgencyRank(inherited) ? own : inherited
+}
+
 function getSuggestionReason({
   node,
   remainingLeaves,
   totalLeaves,
   depth,
+  urgency,
 }: {
   node: TreeNode
   remainingLeaves: number
   totalLeaves: number
   depth: number
+  urgency: TreeNode['urgency']
 }): string {
   const parts: string[] = []
 
-  if (node.urgency === 'today') {
+  if (urgency === 'today') {
     parts.push('Today')
-  } else if (node.urgency === 'soon') {
+  } else if (urgency === 'soon') {
     parts.push('Soon')
   }
 
@@ -190,12 +205,14 @@ function scoreSuggestion({
   totalLeaves,
   doneLeaves,
   depth,
+  urgency,
 }: {
   node: TreeNode
   remainingLeaves: number
   totalLeaves: number
   doneLeaves: number
   depth: number
+  urgency: TreeNode['urgency']
 }): number {
   if (remainingLeaves <= 0) {
     return 0
@@ -245,9 +262,9 @@ function scoreSuggestion({
     score -= 25
   }
 
-  if (node.urgency === 'soon') {
+  if (urgency === 'soon') {
     score += 20
-  } else if (node.urgency === 'today') {
+  } else if (urgency === 'today') {
     score += 40
   }
 
@@ -265,10 +282,12 @@ export function getNextActionSuggestions(
     node: TreeNode,
     breadcrumbPath: Breadcrumb[],
     depth: number,
+    inheritedUrgency?: TreeNode['urgency'],
   ): { doneLeaves: number; totalLeaves: number } => {
     let doneLeaves = 0
     let totalLeaves = 0
     const nextPath = [...breadcrumbPath, { id: node.id, text: node.text }]
+    const nodeUrgency = effectiveUrgency(node.urgency, inheritedUrgency)
 
     if (!node.children.length) {
       if (node.kind !== 'folder') {
@@ -277,7 +296,7 @@ export function getNextActionSuggestions(
       }
     } else {
       for (const child of node.children) {
-        const childMetrics = visitNode(child, nextPath, depth + 1)
+        const childMetrics = visitNode(child, nextPath, depth + 1, nodeUrgency)
         doneLeaves += childMetrics.doneLeaves
         totalLeaves += childMetrics.totalLeaves
       }
@@ -297,6 +316,7 @@ export function getNextActionSuggestions(
         totalLeaves,
         doneLeaves,
         depth,
+        urgency: nodeUrgency,
       })
 
       if (score > 0) {
@@ -309,6 +329,7 @@ export function getNextActionSuggestions(
             remainingLeaves,
             totalLeaves,
             depth,
+            urgency: nodeUrgency,
           }),
         })
       }
