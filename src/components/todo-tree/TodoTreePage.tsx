@@ -698,12 +698,12 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
                 }}
               >
                 <LogOut className="icon-xs" aria-hidden="true" />
-                Logout
+                <span className="tab-text">Logout</span>
               </button>
             ) : (
               <a className="tab" href="/auth">
                 <LogIn className="icon-xs" aria-hidden="true" />
-                Login
+                <span className="tab-text">Login</span>
               </a>
             )}
           </div>
