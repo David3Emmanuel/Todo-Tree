@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import {
   Check,
   ChevronRight,
   Square,
   FolderTree,
   Minus,
+  MoreHorizontal,
   Trash2,
   TreePine,
   Wheat,
@@ -36,7 +38,10 @@ export function TodoNode({
 }) {
   const { tree, setTree, editingId, setEditingId, setZoom } = useTodoCtx()
   const [dropPos, setDropPos] = useState<DropPosition | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
   const pendingEditingIdRef = useRef<string | null>(null)
+  const moreRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (!pendingEditingIdRef.current) {
@@ -47,6 +52,32 @@ export function TodoNode({
     pendingEditingIdRef.current = null
     setEditingId(nextEditingId)
   }, [setEditingId, tree])
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const onMenuKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    window.addEventListener('keydown', onMenuKey)
+    return () => window.removeEventListener('keydown', onMenuKey)
+  }, [menuOpen])
+
+  const openMenu = () => {
+    if (!moreRef.current) return
+    const isMobile = window.innerWidth <= 640
+    if (isMobile) {
+      setMenuStyle({ zIndex: 9999 })
+    } else {
+      const rect = moreRef.current.getBoundingClientRect()
+      setMenuStyle({
+        position: 'fixed',
+        top: `${rect.bottom + 4}px`,
+        left: `${rect.left}px`,
+        zIndex: 9999,
+      })
+    }
+    setMenuOpen(true)
+  }
 
   const findBreadcrumbPath = (
     nodes: TreeNode[],
@@ -333,27 +364,6 @@ export function TodoNode({
 
         <span className="actions">
           <button
-            className={`act mode${isFolder ? ' folder' : ''}`}
-            title={isFolder ? 'Convert to task' : 'Convert to category'}
-            onClick={() =>
-              setTree((prev) =>
-                upd(prev, node.id, (target) => {
-                  const nextKind = target.kind === 'folder' ? 'task' : 'folder'
-                  target.kind = nextKind
-                  if (nextKind === 'folder') {
-                    target.completed = false
-                  }
-                }),
-              )
-            }
-          >
-            {isFolder ? (
-              <Square className="icon-xs" aria-hidden="true" />
-            ) : (
-              <FolderTree className="icon-xs" aria-hidden="true" />
-            )}
-          </button>
-          <button
             className={`act${node.starred ? ' starred' : ''}`}
             title={node.starred ? 'Unpin from Harvest' : 'Pin to Harvest'}
             onClick={() =>
@@ -370,26 +380,16 @@ export function TodoNode({
               <WheatOff className="icon-xs" aria-hidden="true" />
             )}
           </button>
-          {hasKids && (
-            <button
-              className="act zoom"
-              title="Zoom in"
-              onClick={() => {
-                const nextZoom = findBreadcrumbPath(tree, node.id)
-                if (nextZoom) {
-                  setZoom(nextZoom)
-                }
-              }}
-            >
-              <ZoomIn className="icon-xs" aria-hidden="true" />
-            </button>
-          )}
           <button
-            className="act del"
-            title="Delete"
-            onClick={() => setTree((prev) => rem(prev, node.id))}
+            ref={moreRef}
+            className="act more"
+            title="More actions"
+            onClick={(e) => {
+              e.stopPropagation()
+              openMenu()
+            }}
           >
-            <Trash2 className="icon-xs" aria-hidden="true" />
+            <MoreHorizontal className="icon-xs" aria-hidden="true" />
           </button>
         </span>
       </div>
@@ -405,6 +405,69 @@ export function TodoNode({
           ))}
         </div>
       )}
+
+      {menuOpen &&
+        createPortal(
+          <>
+            <div
+              className="node-menu-backdrop"
+              onClick={() => setMenuOpen(false)}
+            />
+            <div
+              className="node-menu"
+              style={menuStyle}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                className="node-menu-item"
+                onClick={() => {
+                  setTree((prev) =>
+                    upd(prev, node.id, (target) => {
+                      const nextKind =
+                        target.kind === 'folder' ? 'task' : 'folder'
+                      target.kind = nextKind
+                      if (nextKind === 'folder') {
+                        target.completed = false
+                      }
+                    }),
+                  )
+                  setMenuOpen(false)
+                }}
+              >
+                {isFolder ? (
+                  <Square className="icon-xs" aria-hidden="true" />
+                ) : (
+                  <FolderTree className="icon-xs" aria-hidden="true" />
+                )}
+                {isFolder ? 'Convert to task' : 'Convert to category'}
+              </button>
+              {hasKids && (
+                <button
+                  className="node-menu-item"
+                  onClick={() => {
+                    const nextZoom = findBreadcrumbPath(tree, node.id)
+                    if (nextZoom) setZoom(nextZoom)
+                    setMenuOpen(false)
+                  }}
+                >
+                  <ZoomIn className="icon-xs" aria-hidden="true" />
+                  Zoom in
+                </button>
+              )}
+              <button
+                className="node-menu-item del"
+                onClick={() => {
+                  setTree((prev) => rem(prev, node.id))
+                  setMenuOpen(false)
+                }}
+              >
+                <Trash2 className="icon-xs" aria-hidden="true" />
+                Delete
+              </button>
+            </div>
+          </>,
+          document.body,
+        )}
     </>
   )
 }
