@@ -4,6 +4,7 @@ export type TreeNode = {
   id: string
   text: string
   kind?: 'task' | 'folder'
+  urgency?: 'soon' | 'today'
   completed: boolean
   collapsed: boolean
   starred: boolean

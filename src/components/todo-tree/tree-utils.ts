@@ -153,6 +153,12 @@ function getSuggestionReason({
 }): string {
   const parts: string[] = []
 
+  if (node.urgency === 'today') {
+    parts.push('Today')
+  } else if (node.urgency === 'soon') {
+    parts.push('Soon')
+  }
+
   if (node.starred) {
     parts.push('Starred')
   }
@@ -237,6 +243,12 @@ function scoreSuggestion({
 
   if (!node.text.trim()) {
     score -= 25
+  }
+
+  if (node.urgency === 'soon') {
+    score += 20
+  } else if (node.urgency === 'today') {
+    score += 40
   }
 
   return score

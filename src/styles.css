@@ -1418,6 +1418,23 @@ body,
   }
 }
 
+.urgency-pip {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #4a443e;
+}
+.urgency-pip[data-urgency='soon'],
+.urgency-pip--soon {
+  background: #e8c547;
+}
+.urgency-pip[data-urgency='today'],
+.urgency-pip--today {
+  background: #e8614a;
+}
+
 .pin-action {
   opacity: 0;
   pointer-events: none;

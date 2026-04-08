@@ -346,6 +346,15 @@ export function TodoNode({
           </span>
         )}
 
+        {node.urgency && (
+          <span
+            className="urgency-pip"
+            data-urgency={node.urgency}
+            title={node.urgency === 'today' ? 'Urgency: Today' : 'Urgency: Soon'}
+            aria-label={node.urgency === 'today' ? 'Urgent today' : 'Urgent soon'}
+          />
+        )}
+
         {hasKids && !isLeaf && (
           <div className="prog">
             <div className="prog-track">
@@ -464,6 +473,32 @@ export function TodoNode({
                   Zoom in
                 </button>
               )}
+              <button
+                className="node-menu-item"
+                onClick={() => {
+                  setTree((prev) =>
+                    upd(prev, node.id, (target) => {
+                      if (!target.urgency) {
+                        target.urgency = 'soon'
+                      } else if (target.urgency === 'soon') {
+                        target.urgency = 'today'
+                      } else {
+                        target.urgency = undefined
+                      }
+                    }),
+                  )
+                  setMenuOpen(false)
+                }}
+              >
+                <span
+                  className={`urgency-pip${node.urgency ? ` urgency-pip--${node.urgency}` : ' urgency-pip--none'}`}
+                />
+                {!node.urgency
+                  ? 'Set urgency'
+                  : node.urgency === 'soon'
+                    ? 'Urgency: Soon'
+                    : 'Urgency: Today'}
+              </button>
               <button
                 className="node-menu-item del"
                 onClick={() => {
