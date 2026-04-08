@@ -8,7 +8,6 @@ import {
   Minus,
   MoreHorizontal,
   Trash2,
-  TreePine,
   Wheat,
   WheatOff,
   ZoomIn,
@@ -106,6 +105,14 @@ export function TodoNode({
   const someDone = !isFolder && !allDone && done > 0
   const isEditing = editingId === node.id
   const paddingLeft = 14 + depth * 22
+
+  const toggleStar = () => {
+    setTree((prev) =>
+      upd(prev, node.id, (target) => {
+        target.starred = !target.starred
+      }),
+    )
+  }
 
   const getCommittedId = (currentId: string, currentText: string) =>
     makeUniqueUid(tree, currentText, currentId)
@@ -362,24 +369,19 @@ export function TodoNode({
           <span className="collapsed-count">{countDescendants(node)}</span>
         )}
 
+        <button
+          className={`act pin-action${node.starred ? ' starred' : ''}`}
+          title={node.starred ? 'Unpin from Harvest' : 'Pin to Harvest'}
+          onClick={toggleStar}
+        >
+          {node.starred ? (
+            <Wheat className="icon-xs" aria-hidden="true" />
+          ) : (
+            <WheatOff className="icon-xs" aria-hidden="true" />
+          )}
+        </button>
+
         <span className="actions">
-          <button
-            className={`act${node.starred ? ' starred' : ''}`}
-            title={node.starred ? 'Unpin from Harvest' : 'Pin to Harvest'}
-            onClick={() =>
-              setTree((prev) =>
-                upd(prev, node.id, (target) => {
-                  target.starred = !target.starred
-                }),
-              )
-            }
-          >
-            {node.starred ? (
-              <Wheat className="icon-xs" aria-hidden="true" />
-            ) : (
-              <WheatOff className="icon-xs" aria-hidden="true" />
-            )}
-          </button>
           <button
             ref={moreRef}
             className="act more"
@@ -440,6 +442,14 @@ export function TodoNode({
                   <FolderTree className="icon-xs" aria-hidden="true" />
                 )}
                 {isFolder ? 'Convert to task' : 'Convert to category'}
+              </button>
+              <button className="node-menu-item" onClick={toggleStar}>
+                {node.starred ? (
+                  <Wheat className="icon-xs" aria-hidden="true" />
+                ) : (
+                  <WheatOff className="icon-xs" aria-hidden="true" />
+                )}
+                {node.starred ? 'Unpin from Harvest' : 'Pin to Harvest'}
               </button>
               {hasKids && (
                 <button

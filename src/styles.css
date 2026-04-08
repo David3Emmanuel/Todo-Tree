@@ -1418,6 +1418,28 @@ body,
   }
 }
 
+.pin-action {
+  opacity: 0;
+  pointer-events: none;
+  flex-shrink: 0;
+}
+
+.node:hover .pin-action,
+.pin-action.starred {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .pin-action {
+    opacity: 0;
+  }
+
+  .pin-action.starred {
+    opacity: 1;
+  }
+}
+
 .act {
   background: none;
   border: none;
@@ -1451,6 +1473,17 @@ body,
 }
 .act.mode.folder {
   color: #d7c6a4;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .act.more {
+    opacity: 0.72;
+  }
+
+  .act.more:focus-visible,
+  .act.more:active {
+    opacity: 1;
+  }
 }
 
 .node-menu-backdrop {
