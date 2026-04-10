@@ -262,10 +262,10 @@ function scoreSuggestion({
     score -= 25
   }
 
-  if (urgency === 'soon') {
-    score += 40
-  } else if (urgency === 'today') {
-    score += 80
+  if (urgency === 'today') {
+    score += 1000
+  } else if (urgency === 'soon') {
+    score += 500
   }
 
   return score
