@@ -176,8 +176,12 @@ export function HideUntilTaskPicker({
             if (event.key === 'Enter' && filteredOptions.length > 0) {
               event.preventDefault()
               const [firstOption] = filteredOptions
-              setSelectedTaskId(firstOption.id)
-              setQuery(firstOption.text)
+              if (selectedTaskId === firstOption.id) {
+                onApply(firstOption.id)
+              } else {
+                setSelectedTaskId(firstOption.id)
+                setQuery(firstOption.text)
+              }
             }
           }}
         />

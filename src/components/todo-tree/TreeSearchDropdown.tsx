@@ -37,6 +37,7 @@ export function TreeSearchDropdown({
   onZoom: (path: Breadcrumb[], node: TreeNode) => void
 }) {
   const [query, setQuery] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focused, setFocused] = useState(false)
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null)
   const fieldRef = useRef<HTMLInputElement | null>(null)
@@ -50,6 +51,13 @@ export function TreeSearchDropdown({
       .filter((opt) => opt.node.text.toLowerCase().includes(q))
       .slice(0, 10)
   }, [query, allOptions])
+
+  const confirmOption = (opt: SearchOption) => {
+    onZoom(opt.path, opt.node)
+    setQuery('')
+    setSelectedId(null)
+    fieldRef.current?.blur()
+  }
 
   const isOpen = focused && query.trim().length > 0
 
@@ -113,15 +121,11 @@ export function TreeSearchDropdown({
                 return (
                   <button
                     key={opt.node.id}
-                    className="tree-search-option"
+                    className={`tree-search-option${selectedId === opt.node.id ? ' selected' : ''}`}
                     type="button"
-                    onClick={() => {
-                      onZoom(opt.path, opt.node)
-                      setQuery('')
-                      fieldRef.current?.blur()
-                    }}
+                    onClick={() => confirmOption(opt)}
                     role="option"
-                    aria-selected={false}
+                    aria-selected={selectedId === opt.node.id}
                   >
                     <span className="tree-search-option-main">
                       {opt.node.text || 'Untitled'}
@@ -148,7 +152,21 @@ export function TreeSearchDropdown({
         type="search"
         value={query}
         placeholder="Search…"
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          setQuery(e.target.value)
+          setSelectedId(null)
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && filteredOptions.length > 0) {
+            e.preventDefault()
+            const first = filteredOptions[0]
+            if (selectedId === first.node.id) {
+              confirmOption(first)
+            } else {
+              setSelectedId(first.node.id)
+            }
+          }
+        }}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         aria-label="Search tasks"
