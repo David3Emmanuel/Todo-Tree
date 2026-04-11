@@ -1,13 +1,19 @@
-import { Check, FolderTree, Wheat, WheatOff } from 'lucide-react'
+import { Check, FolderTree, Wheat, WheatOff, X } from 'lucide-react'
 import { useTodoCtx } from './todo-context'
-import { getAllStarred, getProgress, toggleTree, upd } from './tree-utils'
+import { getHarvestSections, getProgress, toggleTree, upd } from './tree-utils'
 import { HarvestFocusModal } from './HarvestFocusModal'
 import { useFocus } from './useFocus'
 import { FocusNode } from './FocusNode'
-import type { Breadcrumb } from './types'
+import type { Breadcrumb, HarvestPriority, HarvestTreeNode } from './types'
+
+const SECTION_LABELS: Record<HarvestPriority, string> = {
+  starred: 'Starred',
+  today: 'Today',
+  soon: 'Soon',
+}
 
 function findBreadcrumbPath(
-  nodes: Parameters<typeof getAllStarred>[0],
+  nodes: Parameters<typeof getHarvestSections>[0],
   targetId: string,
   path: Breadcrumb[] = [],
 ): Breadcrumb[] | null {
@@ -26,9 +32,121 @@ function findBreadcrumbPath(
   return null
 }
 
+function HarvestItem({
+  item,
+  depth,
+  openFocus,
+  onUnpin,
+  onClearUrgency,
+}: {
+  item: HarvestTreeNode
+  depth: number
+  openFocus: (id: string) => void
+  onUnpin: (id: string) => void
+  onClearUrgency: (id: string) => void
+}) {
+  const { setTree } = useTodoCtx()
+  const node = item.node
+  const isFolder = node.kind === 'folder'
+  const { done, total } = getProgress(node)
+  const allDone = !isFolder && total > 0 && done === total
+
+  return (
+    <div style={{ paddingLeft: depth * 20 }}>
+      <div
+        className="h-item can-focus"
+        onClick={() => openFocus(node.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(event) => {
+          if (
+            (event.key === 'Enter' || event.key === ' ') &&
+            !event.defaultPrevented
+          ) {
+            event.preventDefault()
+            openFocus(node.id)
+          }
+        }}
+        title="Open harvest subtree"
+      >
+        <button
+          className={`check${isFolder ? ' folder' : ''}${allDone ? ' done' : ''}`}
+          style={{ flexShrink: 0 }}
+          onClick={(event) => {
+            event.stopPropagation()
+            if (!isFolder) {
+              setTree((prev) => toggleTree(prev, node.id))
+            }
+          }}
+          disabled={isFolder}
+          title={isFolder ? 'Category (not completable)' : undefined}
+        >
+          {isFolder ? (
+            <FolderTree className="icon-xs" aria-hidden="true" />
+          ) : allDone ? (
+            <Check className="icon-xs" aria-hidden="true" />
+          ) : null}
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              fontFamily: "'Courier Prime', monospace",
+              fontSize: 14,
+              color: isFolder ? '#d9cbab' : allDone ? '#928c86' : '#e6dfd6',
+              textDecoration: !isFolder && allDone ? 'line-through' : 'none',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {node.text}
+          </div>
+          {depth === 0 && item.path.length > 0 && (
+            <div className="h-path">{item.path.join(' > ')}</div>
+          )}
+        </div>
+        {item.ownPriority === 'starred' && (
+          <button
+            className="act starred"
+            title="Unpin"
+            onClick={(event) => {
+              event.stopPropagation()
+              onUnpin(node.id)
+            }}
+          >
+            <WheatOff className="icon-xs" aria-hidden="true" />
+          </button>
+        )}
+        {(item.ownPriority === 'today' || item.ownPriority === 'soon') && (
+          <button
+            className="act"
+            title="Clear urgency"
+            onClick={(event) => {
+              event.stopPropagation()
+              onClearUrgency(node.id)
+            }}
+          >
+            <X className="icon-xs" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      {item.harvestChildren.map((child) => (
+        <HarvestItem
+          key={child.node.id}
+          item={child}
+          depth={depth + 1}
+          openFocus={openFocus}
+          onUnpin={onUnpin}
+          onClearUrgency={onClearUrgency}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function HarvestView() {
   const { tree, setTree, setZoom } = useTodoCtx()
-  const items = getAllStarred(tree)
+  const sections = getHarvestSections(tree)
   const { focusRoot, openFocus, closeFocus } = useFocus({ tree })
 
   const closeFocusAndZoomToRoot = () => {
@@ -45,13 +163,29 @@ export function HarvestView() {
     closeFocus()
   }
 
-  if (!items.length) {
+  const onUnpin = (id: string) => {
+    setTree((prev) =>
+      upd(prev, id, (target) => {
+        target.starred = false
+      }),
+    )
+  }
+
+  const onClearUrgency = (id: string) => {
+    setTree((prev) =>
+      upd(prev, id, (target) => {
+        target.urgency = undefined
+      }),
+    )
+  }
+
+  if (!sections.length) {
     return (
       <div className="empty">
         <Wheat className="empty-icon" aria-hidden="true" />
-        <div>No pinned tasks yet</div>
+        <div>No pinned or urgent tasks</div>
         <div style={{ fontSize: 12, color: '#928c86' }}>
-          Star tasks in the Tree view to harvest them here
+          Star tasks or mark them as Today/Soon to harvest them here
         </div>
       </div>
     )
@@ -59,86 +193,23 @@ export function HarvestView() {
 
   return (
     <div className="harvest">
-      <div className="harvest-hint">
-        Starred tasks harvested from across your tree
-      </div>
-      {items.map((item) => {
-        const isFolder = item.kind === 'folder'
-        const { done, total } = getProgress(item)
-        const allDone = !isFolder && total > 0 && done === total
-
-        return (
-          <div
-            key={item.id}
-            className="h-item can-focus"
-            onClick={() => openFocus(item.id)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(event) => {
-              if (
-                (event.key === 'Enter' || event.key === ' ') &&
-                !event.defaultPrevented
-              ) {
-                event.preventDefault()
-                openFocus(item.id)
-              }
-            }}
-            title="Open harvest subtree"
-          >
-            <button
-              className={`check${isFolder ? ' folder' : ''}${allDone ? ' done' : ''}`}
-              style={{ flexShrink: 0 }}
-              onClick={(event) => {
-                event.stopPropagation()
-                if (!isFolder) {
-                  setTree((prev) => toggleTree(prev, item.id))
-                }
-              }}
-              disabled={isFolder}
-              title={isFolder ? 'Category (not completable)' : undefined}
-            >
-              {isFolder ? (
-                <FolderTree className="icon-xs" aria-hidden="true" />
-              ) : allDone ? (
-                <Check className="icon-xs" aria-hidden="true" />
-              ) : null}
-            </button>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div
-                style={{
-                  fontFamily: "'Courier Prime', monospace",
-                  fontSize: 14,
-                  color: isFolder ? '#d9cbab' : allDone ? '#928c86' : '#e6dfd6',
-                  textDecoration:
-                    !isFolder && allDone ? 'line-through' : 'none',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {item.text}
-              </div>
-              {item._path.length > 0 && (
-                <div className="h-path">{item._path.join(' > ')}</div>
-              )}
-            </div>
-            <button
-              className="act starred"
-              title="Unpin"
-              onClick={(event) => {
-                event.stopPropagation()
-                setTree((prev) =>
-                  upd(prev, item.id, (target) => {
-                    target.starred = false
-                  }),
-                )
-              }}
-            >
-              <WheatOff className="icon-xs" aria-hidden="true" />
-            </button>
+      {sections.map((section) => (
+        <div key={section.priority} className="harvest-section">
+          <div className="harvest-section-header">
+            {SECTION_LABELS[section.priority]}
           </div>
-        )
-      })}
+          {section.items.map((item) => (
+            <HarvestItem
+              key={item.node.id}
+              item={item}
+              depth={0}
+              openFocus={openFocus}
+              onUnpin={onUnpin}
+              onClearUrgency={onClearUrgency}
+            />
+          ))}
+        </div>
+      ))}
 
       {focusRoot && (
         <HarvestFocusModal focusRoot={focusRoot} onClose={closeFocus}>

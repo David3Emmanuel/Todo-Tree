@@ -49,7 +49,7 @@ import {
   collapseAll,
   expandAll,
   findNode,
-  getAllStarred,
+  getHarvestSections,
   getNextActionSuggestions,
   makeNode,
   upd,
@@ -450,7 +450,12 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     ? findNode(tree, zoom[zoom.length - 1].id)
     : null
   const displayNodes = zoomedNode ? zoomedNode.children : tree
-  const starred = getAllStarred(tree)
+  const harvestSections = getHarvestSections(tree)
+  const harvestCounts = {
+    starred: harvestSections.find((s) => s.priority === 'starred')?.items.length ?? 0,
+    today: harvestSections.find((s) => s.priority === 'today')?.items.length ?? 0,
+    soon: harvestSections.find((s) => s.priority === 'soon')?.items.length ?? 0,
+  }
 
   const findBreadcrumbPath = (
     nodes: TreeNode[],
@@ -673,8 +678,14 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
               >
                 <Wheat className="icon-xs" aria-hidden="true" />
                 Harvest{' '}
-                {starred.length > 0 && (
-                  <span className="badge">{starred.length}</span>
+                {harvestCounts.starred > 0 && (
+                  <span className="badge">{harvestCounts.starred}</span>
+                )}
+                {harvestCounts.today > 0 && (
+                  <span className="badge badge--today">{harvestCounts.today}</span>
+                )}
+                {harvestCounts.soon > 0 && (
+                  <span className="badge badge--soon">{harvestCounts.soon}</span>
                 )}
               </button>
               {view === 'tree' && displayNodes.length > 0 && (

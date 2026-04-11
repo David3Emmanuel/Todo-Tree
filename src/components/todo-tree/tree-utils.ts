@@ -1,4 +1,4 @@
-import type { Breadcrumb, DropPosition, StarredItem, TreeNode } from './types'
+import type { Breadcrumb, DropPosition, HarvestPriority, HarvestSection, HarvestTreeNode, StarredItem, TreeNode } from './types'
 
 export type SuggestionItem = {
   node: TreeNode
@@ -115,6 +115,93 @@ export function getAllStarred(
     result.push(...getAllStarred(node.children, nextPath))
   }
   return result
+}
+
+function getNodeHarvestPriority(node: TreeNode): HarvestPriority | null {
+  if (node.starred) return 'starred'
+  if (node.urgency === 'today' && !node.completed) return 'today'
+  if (node.urgency === 'soon' && !node.completed) return 'soon'
+  return null
+}
+
+function priorityRank(p: HarvestPriority | null): number {
+  if (p === 'starred') return 3
+  if (p === 'today') return 2
+  if (p === 'soon') return 1
+  return 0
+}
+
+function maxPriority(
+  a: HarvestPriority | null,
+  b: HarvestPriority | null,
+): HarvestPriority | null {
+  return priorityRank(a) >= priorityRank(b) ? a : b
+}
+
+function buildHarvestSubtree(
+  nodes: TreeNode[],
+  path: string[],
+): HarvestTreeNode[] {
+  const result: HarvestTreeNode[] = []
+  for (const node of nodes) {
+    const ownPriority = getNodeHarvestPriority(node)
+    const childPath = [...path, node.text]
+    const harvestChildren = buildHarvestSubtree(node.children, childPath)
+    if (ownPriority !== null || harvestChildren.length > 0) {
+      let mp: HarvestPriority | null = ownPriority
+      for (const child of harvestChildren) {
+        mp = maxPriority(mp, child.maxPriority)
+      }
+      result.push({
+        node,
+        path,
+        ownPriority,
+        maxPriority: mp as HarvestPriority,
+        harvestChildren,
+      })
+    }
+  }
+  return result
+}
+
+function buildHarvestForest(
+  nodes: TreeNode[],
+  path: string[],
+): HarvestTreeNode[] {
+  const result: HarvestTreeNode[] = []
+  for (const node of nodes) {
+    const ownPriority = getNodeHarvestPriority(node)
+    const childPath = [...path, node.text]
+    if (ownPriority !== null) {
+      const harvestChildren = buildHarvestSubtree(node.children, childPath)
+      let mp: HarvestPriority = ownPriority
+      for (const child of harvestChildren) {
+        if (priorityRank(child.maxPriority) > priorityRank(mp)) {
+          mp = child.maxPriority
+        }
+      }
+      result.push({ node, path, ownPriority, maxPriority: mp, harvestChildren })
+    } else {
+      result.push(...buildHarvestForest(node.children, childPath))
+    }
+  }
+  return result
+}
+
+export function getHarvestSections(nodes: TreeNode[]): HarvestSection[] {
+  const forest = buildHarvestForest(nodes, [])
+  const buckets: Record<HarvestPriority, HarvestTreeNode[]> = {
+    starred: [],
+    today: [],
+    soon: [],
+  }
+  for (const item of forest) {
+    buckets[item.maxPriority].push(item)
+  }
+  const order: HarvestPriority[] = ['starred', 'today', 'soon']
+  return order
+    .filter((p) => buckets[p].length > 0)
+    .map((p) => ({ priority: p, items: buckets[p] }))
 }
 
 function hashString(value: string): number {

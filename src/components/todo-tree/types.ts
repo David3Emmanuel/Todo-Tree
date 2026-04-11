@@ -22,6 +22,21 @@ export type StarredItem = TreeNode & {
   _path: string[]
 }
 
+export type HarvestPriority = 'starred' | 'today' | 'soon'
+
+export type HarvestTreeNode = {
+  node: TreeNode
+  path: string[]
+  ownPriority: HarvestPriority | null
+  maxPriority: HarvestPriority
+  harvestChildren: HarvestTreeNode[]
+}
+
+export type HarvestSection = {
+  priority: HarvestPriority
+  items: HarvestTreeNode[]
+}
+
 export type ViewMode = 'tree' | 'harvest'
 
 export type SuggestionHideRule = {
