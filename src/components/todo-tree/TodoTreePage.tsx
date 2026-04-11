@@ -678,14 +678,18 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
               >
                 <Wheat className="icon-xs" aria-hidden="true" />
                 Harvest{' '}
-                {harvestCounts.starred > 0 && (
-                  <span className="badge">{harvestCounts.starred}</span>
-                )}
-                {harvestCounts.today > 0 && (
-                  <span className="badge badge--today">{harvestCounts.today}</span>
-                )}
-                {harvestCounts.soon > 0 && (
-                  <span className="badge badge--soon">{harvestCounts.soon}</span>
+                {(harvestCounts.starred > 0 || harvestCounts.today > 0 || harvestCounts.soon > 0) && (
+                  <span className="harvest-badges">
+                    {harvestCounts.starred > 0 && (
+                      <span className="badge">{harvestCounts.starred}</span>
+                    )}
+                    {harvestCounts.today > 0 && (
+                      <span className="badge badge--today">{harvestCounts.today}</span>
+                    )}
+                    {harvestCounts.soon > 0 && (
+                      <span className="badge badge--soon">{harvestCounts.soon}</span>
+                    )}
+                  </span>
                 )}
               </button>
               {view === 'tree' && displayNodes.length > 0 && (

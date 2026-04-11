@@ -389,16 +389,29 @@ body,
   color: #c9c2bb;
 }
 
+.harvest-badges {
+  display: inline-flex;
+  gap: 0;
+}
 .badge {
   background: #cf7d3c;
   color: #0f0e0d;
   font-size: 0.625rem;
   font-weight: 700;
   padding: 0.0625rem 0.3125rem;
-  border-radius: 6.1875rem;
+  border-radius: 0;
   min-width: 1.0625rem;
   text-align: center;
   line-height: 1.1;
+}
+.harvest-badges .badge:first-child {
+  border-radius: 6.1875rem 0 0 6.1875rem;
+}
+.harvest-badges .badge:last-child {
+  border-radius: 0 6.1875rem 6.1875rem 0;
+}
+.harvest-badges .badge:only-child {
+  border-radius: 6.1875rem;
 }
 .badge--today {
   background: #e8614a;
