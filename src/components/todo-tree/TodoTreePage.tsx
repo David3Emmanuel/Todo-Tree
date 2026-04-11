@@ -31,6 +31,7 @@ import { useAuth } from '../auth/auth-context'
 import { BrandHeader } from '../layout/BrandHeader'
 import { LoadingScreen } from '../layout/LoadingScreen'
 import { MainMenu } from '../layout/MainMenu'
+import { useActivityHistory } from './useActivityHistory'
 import { HarvestFocusModal } from './HarvestFocusModal'
 import { HarvestView } from './HarvestView'
 import { FocusNode } from './FocusNode'
@@ -139,6 +140,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     suggestionTick,
   } = usePersistence(isAuthenticated, jwt)
   const [menuOpen, setMenuOpen] = useState(false)
+  const activityHistory = useActivityHistory(tree)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [hideMenuId, setHideMenuId] = useState<string | null>(null)
   const [hideUntilDate, setHideUntilDate] = useState('')
@@ -1121,7 +1123,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
           </>
         )}
       </div>
-      <MainMenu open={menuOpen} onClose={() => setMenuOpen(false)} nodes={tree} />
+      <MainMenu open={menuOpen} onClose={() => setMenuOpen(false)} nodes={tree} history={activityHistory} />
     </TodoCtx.Provider>
   )
 }

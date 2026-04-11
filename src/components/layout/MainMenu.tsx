@@ -1,22 +1,20 @@
-import { type ReactNode, useEffect, useMemo } from 'react'
-import { X, User, LogIn, LogOut, Star, Clock, CalendarClock } from 'lucide-react'
+import { type ReactNode, useEffect } from 'react'
+import { X, User, LogIn, LogOut } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '../auth/auth-context'
-import {
-  getProgress,
-  getAllStarred,
-  getHarvestSections,
-} from '../todo-tree/tree-utils'
 import type { TreeNode } from '../todo-tree/types'
+import type { DaySnapshot } from '../todo-tree/useActivityHistory'
+import { ActivityGraph } from './ActivityGraph'
 
 interface MainMenuProps {
   open: boolean
   onClose: () => void
   children?: ReactNode
   nodes: TreeNode[]
+  history: DaySnapshot[]
 }
 
-export function MainMenu({ open, onClose, children, nodes }: MainMenuProps) {
+export function MainMenu({ open, onClose, children, history }: MainMenuProps) {
   const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -40,24 +38,6 @@ export function MainMenu({ open, onClose, children, nodes }: MainMenuProps) {
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [open, onClose])
-
-  // Stats derived from tree
-  const stats = useMemo(() => {
-    const syntheticRoot: TreeNode = {
-      id: '__root__',
-      text: '',
-      completed: false,
-      collapsed: false,
-      starred: false,
-      children: nodes,
-    }
-    const { done, total } = getProgress(syntheticRoot)
-    const starred = getAllStarred(nodes).length
-    const sections = getHarvestSections(nodes)
-    const today = sections.find((s) => s.priority === 'today')?.items.length ?? 0
-    const soon = sections.find((s) => s.priority === 'soon')?.items.length ?? 0
-    return { done, total, starred, today, soon }
-  }, [nodes])
 
   return (
     <>
@@ -133,41 +113,13 @@ export function MainMenu({ open, onClose, children, nodes }: MainMenuProps) {
             )}
           </section>
 
-          {/* Quick stats */}
-          {stats.total > 0 && (
-            <section className="main-menu-section">
-              <div className="main-menu-section-title">Quick stats</div>
-              <div className="menu-stat-grid">
-                <div className="menu-stat-chip">
-                  <span className="menu-stat-value">{stats.done}/{stats.total}</span>
-                  <span className="menu-stat-label">Done</span>
-                </div>
-                <div className="menu-stat-chip">
-                  <span className="menu-stat-value menu-stat-value--today">
-                    <Clock className="icon-xs" aria-hidden="true" />
-                    {stats.today}
-                  </span>
-                  <span className="menu-stat-label">Today</span>
-                </div>
-                <div className="menu-stat-chip">
-                  <span className="menu-stat-value menu-stat-value--soon">
-                    <CalendarClock className="icon-xs" aria-hidden="true" />
-                    {stats.soon}
-                  </span>
-                  <span className="menu-stat-label">Soon</span>
-                </div>
-                <div className="menu-stat-chip">
-                  <span className="menu-stat-value menu-stat-value--starred">
-                    <Star className="icon-xs" aria-hidden="true" />
-                    {stats.starred}
-                  </span>
-                  <span className="menu-stat-label">Starred</span>
-                </div>
-              </div>
-            </section>
-          )}
+          {/* Activity graph */}
+          <section className="main-menu-section">
+            <div className="main-menu-section-title">14-day activity</div>
+            <ActivityGraph history={history} />
+          </section>
 
-          {/* Help */}
+          {/* Shortcuts */}
           <section className="main-menu-section">
             <div className="main-menu-section-title">Shortcuts</div>
             <div className="shortcuts">

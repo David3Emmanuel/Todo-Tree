@@ -285,41 +285,21 @@ pre code {
   flex-shrink: 0;
 }
 
-/* Stats grid */
-.menu-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+/* Activity graph */
+.activity-graph {
+  width: 100%;
+  margin: -0.25rem 0;
 }
 
-.menu-stat-chip {
+.activity-tooltip {
   background: #171513;
   border: 1px solid #36312d;
   border-radius: 0.5rem;
-  padding: 0.5rem 0.625rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
-.menu-stat-value {
-  font-size: 0.85rem;
-  font-weight: 700;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.6rem;
   color: #d8cfc4;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.menu-stat-value--today   { color: #e8614a; }
-.menu-stat-value--soon    { color: #e8c547; }
-.menu-stat-value--starred { color: #cf7d3c; }
-
-.menu-stat-label {
-  font-size: 0.55rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #8d8681;
+  line-height: 1.7;
+  pointer-events: none;
 }
 
 /* Desktop: sidebar from the right */
