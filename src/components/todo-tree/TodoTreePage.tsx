@@ -317,13 +317,17 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
 
   const suggestions = useMemo(() => {
     const now = suggestionTick
-    return getNextActionSuggestions(tree, suggestionSeedRef.current, 24)
+    const zoomedNode = zoom.length
+      ? findNode(tree, zoom[zoom.length - 1].id)
+      : null
+    const effectiveNodes = zoomedNode ? zoomedNode.children : tree
+    return getNextActionSuggestions(effectiveNodes, suggestionSeedRef.current, 24)
       .filter(
         (item) =>
           !isSuggestionHidden(activeSuggestionHides[item.node.id], tree, now),
       )
       .slice(0, 3)
-  }, [activeSuggestionHides, suggestionTick, tree])
+  }, [activeSuggestionHides, suggestionTick, tree, zoom])
 
   useEffect(() => {
     if (!isReady) {
