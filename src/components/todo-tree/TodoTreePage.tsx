@@ -210,22 +210,50 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
       const card = document.querySelector(
         `article[data-suggestion-id="${hideMenuId}"]`,
       ) as HTMLElement | null
-      if (!card) {
-        setHideMenuPosition(null)
+      if (card) {
+        const button = card.querySelector(
+          '.suggestion-hide-btn',
+        ) as HTMLElement | null
+        if (!button) {
+          setHideMenuPosition(null)
+          return
+        }
+
+        const rect = button.getBoundingClientRect()
+        const cardRect = card.getBoundingClientRect()
+        const menuWidth = cardRect.width
+        const idealLeft = rect.left + rect.width / 2 - menuWidth / 2
+        const menuLeft = Math.max(
+          8,
+          Math.min(idealLeft, window.innerWidth - menuWidth - 8),
+        )
+
+        setHideMenuPosition({
+          position: 'fixed',
+          left: `${menuLeft}px`,
+          top: `${rect.bottom + 6}px`,
+          width: `${menuWidth}px`,
+          zIndex: 99999,
+        })
         return
       }
 
-      const button = card.querySelector(
-        '.suggestion-hide-btn',
+      const taskNode = document.querySelector(
+        `.node[data-node-id="${hideMenuId}"]`,
       ) as HTMLElement | null
-      if (!button) {
+      if (!taskNode) {
         setHideMenuPosition(null)
         return
       }
 
-      const rect = button.getBoundingClientRect()
-      const cardRect = card.getBoundingClientRect()
-      const menuWidth = cardRect.width
+      const moreBtn = taskNode.querySelector('.more') as HTMLElement | null
+      if (!moreBtn) {
+        setHideMenuPosition(null)
+        return
+      }
+
+      const rect = moreBtn.getBoundingClientRect()
+      const menuWidth = 240
       const idealLeft = rect.left + rect.width / 2 - menuWidth / 2
       const menuLeft = Math.max(
         8,
@@ -267,18 +295,22 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
       const card = document.querySelector(
         `article[data-suggestion-id="${hideMenuId}"]`,
       )
+      const taskNode = document.querySelector(
+        `.node[data-node-id="${hideMenuId}"]`,
+      )
       const menu = document.querySelector('.suggestion-hide-menu[style]')
       const pickerPortal = document.querySelector(
         '[data-suggestion-picker-portal="true"]',
       )
 
-      // Close if clicking outside both the card and the floating menu
+      const anchor = card ?? taskNode
+
+      // Close if clicking outside both the anchor and the floating menu
       if (
-        card &&
         menu &&
-        !card.contains(target) &&
         !menu.contains(target) &&
-        !pickerPortal?.contains(target)
+        !pickerPortal?.contains(target) &&
+        (!anchor || !anchor.contains(target))
       ) {
         closeHideMenu()
       }
@@ -662,6 +694,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     setEditingId,
     zoom,
     setZoom: setZoomFromUi,
+    openHideMenu,
   }
 
   return (

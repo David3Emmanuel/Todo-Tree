@@ -53,6 +53,7 @@ export type CtxValue = {
   setEditingId: Dispatch<SetStateAction<string | null>>
   zoom: Breadcrumb[]
   setZoom: Dispatch<SetStateAction<Breadcrumb[]>>
+  openHideMenu: (nodeId: string) => void
 }
 
 export type PersistedState = {

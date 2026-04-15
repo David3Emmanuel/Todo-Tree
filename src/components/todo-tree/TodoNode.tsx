@@ -3,6 +3,7 @@ import { Portal } from './Portal'
 import {
   Check,
   ChevronRight,
+  EyeOff,
   ListPlus,
   Square,
   FolderTree,
@@ -36,7 +37,7 @@ export function TodoNode({
   node: TreeNode
   depth?: number
 }) {
-  const { tree, setTree, editingId, setEditingId, setZoom } = useTodoCtx()
+  const { tree, setTree, editingId, setEditingId, setZoom, openHideMenu } = useTodoCtx()
   const [dropPos, setDropPos] = useState<DropPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
@@ -240,6 +241,7 @@ export function TodoNode({
 
       <div
         className={`node${dropPos === 'inside' ? ' drop-inside' : ''}`}
+        data-node-id={node.id}
         style={{ paddingLeft }}
         draggable
         onDragStart={(event) => {
@@ -515,6 +517,16 @@ export function TodoNode({
                   : node.urgency === 'soon'
                     ? 'Urgency: Soon'
                     : 'Urgency: Today'}
+              </button>
+              <button
+                className="node-menu-item"
+                onClick={() => {
+                  setMenuOpen(false)
+                  openHideMenu(node.id)
+                }}
+              >
+                <EyeOff className="icon-xs" aria-hidden="true" />
+                Hide task
               </button>
               <button
                 className="node-menu-item del"
