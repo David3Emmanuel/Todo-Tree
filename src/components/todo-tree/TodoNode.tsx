@@ -2,9 +2,11 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Portal } from './Portal'
 import {
   Check,
+  ChevronLeft,
   ChevronRight,
   EyeOff,
   ListPlus,
+  MoveRight,
   Square,
   FolderTree,
   Minus,
@@ -29,6 +31,14 @@ import {
   toggleTree,
   upd,
 } from './tree-utils'
+import { TreeSearchDropdown } from './TreeSearchDropdown'
+
+function getSubtreeIds(n: TreeNode): Set<string> {
+  const ids = new Set<string>()
+  const walk = (nd: TreeNode) => { ids.add(nd.id); nd.children.forEach(walk) }
+  walk(n)
+  return ids
+}
 
 export function TodoNode({
   node,
@@ -41,6 +51,7 @@ export function TodoNode({
   const [dropPos, setDropPos] = useState<DropPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
+  const [movePickerOpen, setMovePickerOpen] = useState(false)
   const pendingEditingIdRef = useRef<string | null>(null)
   const moreRef = useRef<HTMLButtonElement>(null)
 
@@ -61,6 +72,10 @@ export function TodoNode({
     }
     window.addEventListener('keydown', onMenuKey)
     return () => window.removeEventListener('keydown', onMenuKey)
+  }, [menuOpen])
+
+  useEffect(() => {
+    if (!menuOpen) setMovePickerOpen(false)
   }, [menuOpen])
 
   const openMenu = () => {
@@ -431,114 +446,143 @@ export function TodoNode({
             style={menuStyle}
             onClick={(e) => e.stopPropagation()}
           >
-              <button
-                className="node-menu-item"
-                onClick={() => {
-                  setTree((prev) => {
-                    const childNode = makeNode(prev)
-                    pendingEditingIdRef.current = childNode.id
-                    return upd(prev, node.id, (target) => {
-                      target.children.push(childNode)
-                      target.collapsed = false
-                    })
-                  })
-                  setMenuOpen(false)
-                }}
-              >
-                <ListPlus className="icon-xs" aria-hidden="true" />
-                Add subtask
-              </button>
-              <button
-                className="node-menu-item"
-                onClick={() => {
-                  setTree((prev) =>
-                    upd(prev, node.id, (target) => {
-                      const nextKind =
-                        target.kind === 'folder' ? 'task' : 'folder'
-                      target.kind = nextKind
-                      if (nextKind === 'folder') {
-                        target.completed = false
-                      }
-                    }),
-                  )
-                  setMenuOpen(false)
-                }}
-              >
-                {isFolder ? (
-                  <Square className="icon-xs" aria-hidden="true" />
-                ) : (
-                  <FolderTree className="icon-xs" aria-hidden="true" />
-                )}
-                {isFolder ? 'Convert to task' : 'Convert to category'}
-              </button>
-              <button className="node-menu-item" onClick={toggleStar}>
-                {node.starred ? (
-                  <Wheat className="icon-xs" aria-hidden="true" />
-                ) : (
-                  <WheatOff className="icon-xs" aria-hidden="true" />
-                )}
-                {node.starred ? 'Unpin from Harvest' : 'Pin to Harvest'}
-              </button>
-              {hasKids && (
+            {movePickerOpen ? (
+              <div className="node-menu-move-picker">
+                <button
+                  className="node-menu-item node-menu-move-back"
+                  onClick={() => setMovePickerOpen(false)}
+                >
+                  <ChevronLeft className="icon-xs" aria-hidden="true" />
+                  Back
+                </button>
+                <TreeSearchDropdown
+                  tree={tree}
+                  excludeIds={getSubtreeIds(node)}
+                  onZoom={(_, dest) => {
+                    setTree((prev) => moveN(prev, node.id, dest.id, 'inside'))
+                    setMenuOpen(false)
+                  }}
+                />
+              </div>
+            ) : (
+              <>
                 <button
                   className="node-menu-item"
                   onClick={() => {
-                    const nextZoom = findBreadcrumbPath(tree, node.id)
-                    if (nextZoom) setZoom(nextZoom)
+                    setTree((prev) => {
+                      const childNode = makeNode(prev)
+                      pendingEditingIdRef.current = childNode.id
+                      return upd(prev, node.id, (target) => {
+                        target.children.push(childNode)
+                        target.collapsed = false
+                      })
+                    })
                     setMenuOpen(false)
                   }}
                 >
-                  <ZoomIn className="icon-xs" aria-hidden="true" />
-                  Zoom in
+                  <ListPlus className="icon-xs" aria-hidden="true" />
+                  Add subtask
                 </button>
-              )}
-              <button
-                className="node-menu-item"
-                onClick={() => {
-                  setTree((prev) =>
-                    upd(prev, node.id, (target) => {
-                      if (!target.urgency) {
-                        target.urgency = 'soon'
-                      } else if (target.urgency === 'soon') {
-                        target.urgency = 'today'
-                      } else {
-                        target.urgency = undefined
-                      }
-                    }),
-                  )
-                  setMenuOpen(false)
-                }}
-              >
-                <span
-                  className={`urgency-pip${node.urgency ? ` urgency-pip--${node.urgency}` : ' urgency-pip--none'}`}
-                />
-                {!node.urgency
-                  ? 'Set urgency'
-                  : node.urgency === 'soon'
-                    ? 'Urgency: Soon'
-                    : 'Urgency: Today'}
-              </button>
-              <button
-                className="node-menu-item"
-                onClick={() => {
-                  setMenuOpen(false)
-                  openHideMenu(node.id)
-                }}
-              >
-                <EyeOff className="icon-xs" aria-hidden="true" />
-                Hide task
-              </button>
-              <button
-                className="node-menu-item del"
-                onClick={() => {
-                  setTree((prev) => rem(prev, node.id))
-                  setMenuOpen(false)
-                }}
-              >
-                <Trash2 className="icon-xs" aria-hidden="true" />
-                Delete
-              </button>
-            </div>
+                <button
+                  className="node-menu-item"
+                  onClick={() => {
+                    setTree((prev) =>
+                      upd(prev, node.id, (target) => {
+                        const nextKind =
+                          target.kind === 'folder' ? 'task' : 'folder'
+                        target.kind = nextKind
+                        if (nextKind === 'folder') {
+                          target.completed = false
+                        }
+                      }),
+                    )
+                    setMenuOpen(false)
+                  }}
+                >
+                  {isFolder ? (
+                    <Square className="icon-xs" aria-hidden="true" />
+                  ) : (
+                    <FolderTree className="icon-xs" aria-hidden="true" />
+                  )}
+                  {isFolder ? 'Convert to task' : 'Convert to category'}
+                </button>
+                <button className="node-menu-item" onClick={toggleStar}>
+                  {node.starred ? (
+                    <Wheat className="icon-xs" aria-hidden="true" />
+                  ) : (
+                    <WheatOff className="icon-xs" aria-hidden="true" />
+                  )}
+                  {node.starred ? 'Unpin from Harvest' : 'Pin to Harvest'}
+                </button>
+                {hasKids && (
+                  <button
+                    className="node-menu-item"
+                    onClick={() => {
+                      const nextZoom = findBreadcrumbPath(tree, node.id)
+                      if (nextZoom) setZoom(nextZoom)
+                      setMenuOpen(false)
+                    }}
+                  >
+                    <ZoomIn className="icon-xs" aria-hidden="true" />
+                    Zoom in
+                  </button>
+                )}
+                <button
+                  className="node-menu-item"
+                  onClick={() => {
+                    setTree((prev) =>
+                      upd(prev, node.id, (target) => {
+                        if (!target.urgency) {
+                          target.urgency = 'soon'
+                        } else if (target.urgency === 'soon') {
+                          target.urgency = 'today'
+                        } else {
+                          target.urgency = undefined
+                        }
+                      }),
+                    )
+                    setMenuOpen(false)
+                  }}
+                >
+                  <span
+                    className={`urgency-pip${node.urgency ? ` urgency-pip--${node.urgency}` : ' urgency-pip--none'}`}
+                  />
+                  {!node.urgency
+                    ? 'Set urgency'
+                    : node.urgency === 'soon'
+                      ? 'Urgency: Soon'
+                      : 'Urgency: Today'}
+                </button>
+                <button
+                  className="node-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    openHideMenu(node.id)
+                  }}
+                >
+                  <EyeOff className="icon-xs" aria-hidden="true" />
+                  Hide task
+                </button>
+                <button
+                  className="node-menu-item"
+                  onClick={() => setMovePickerOpen(true)}
+                >
+                  <MoveRight className="icon-xs" aria-hidden="true" />
+                  Move to…
+                </button>
+                <button
+                  className="node-menu-item del"
+                  onClick={() => {
+                    setTree((prev) => rem(prev, node.id))
+                    setMenuOpen(false)
+                  }}
+                >
+                  <Trash2 className="icon-xs" aria-hidden="true" />
+                  Delete
+                </button>
+              </>
+            )}
+          </div>
         </>
       </Portal>
     </>

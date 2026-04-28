@@ -19,12 +19,14 @@ type SearchOption = {
 function collectSearchOptions(
   nodes: TreeNode[],
   path: Breadcrumb[] = [],
+  excludeIds?: Set<string>,
 ): SearchOption[] {
   const result: SearchOption[] = []
   for (const node of nodes) {
+    if (excludeIds?.has(node.id)) continue
     const breadcrumbPath = [...path, { id: node.id, text: node.text }]
     result.push({ node, path: breadcrumbPath })
-    result.push(...collectSearchOptions(node.children, breadcrumbPath))
+    result.push(...collectSearchOptions(node.children, breadcrumbPath, excludeIds))
   }
   return result
 }
@@ -32,9 +34,11 @@ function collectSearchOptions(
 export function TreeSearchDropdown({
   tree,
   onZoom,
+  excludeIds,
 }: {
   tree: TreeNode[]
   onZoom: (path: Breadcrumb[], node: TreeNode) => void
+  excludeIds?: Set<string>
 }) {
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -42,7 +46,7 @@ export function TreeSearchDropdown({
   const [panelStyle, setPanelStyle] = useState<CSSProperties | null>(null)
   const fieldRef = useRef<HTMLInputElement | null>(null)
 
-  const allOptions = useMemo(() => collectSearchOptions(tree), [tree])
+  const allOptions = useMemo(() => collectSearchOptions(tree, [], excludeIds), [tree, excludeIds])
 
   const filteredOptions = useMemo(() => {
     const q = query.trim().toLowerCase()

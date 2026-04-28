@@ -1806,6 +1806,18 @@ body,
   color: #d08080;
 }
 
+.node-menu-move-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 14rem;
+  padding-bottom: 0.125rem;
+}
+
+.node-menu-move-back {
+  color: #a49c95;
+}
+
 .drop-line {
   height: 0.125rem;
   background: #cf7d3c;
