@@ -91,18 +91,8 @@ function hasAnyPersistedContent(state: PersistedState): boolean {
   )
 }
 
-function buildStateFingerprint(state: {
-  tree: TreeNode[]
-  zoom: Breadcrumb[]
-  view: ViewMode
-  suggestionHides: SuggestionHideMap
-}): string {
-  return JSON.stringify({
-    tree: state.tree,
-    zoom: state.zoom,
-    view: state.view,
-    suggestionHides: state.suggestionHides,
-  })
+function buildStateFingerprint(state: { tree: TreeNode[] }): string {
+  return JSON.stringify({ tree: state.tree })
 }
 
 function classifyLoginReconcileState(
