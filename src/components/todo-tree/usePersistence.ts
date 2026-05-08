@@ -15,6 +15,11 @@ import {
   saveRemotePersistedState,
   savePersistedState,
 } from './persistence'
+import {
+  buildDiffedTree,
+  computeDiffSummary,
+  flattenNodes,
+} from './treeDiff'
 import type {
   Breadcrumb,
   PersistedState,
@@ -395,6 +400,37 @@ export function usePersistence(
           if (!isCancelled && remote.serverUpdatedAtMs > 0) {
             setServerUpdatedAtMs(remote.serverUpdatedAtMs)
           }
+          if (!isCancelled) {
+            setLoginReconcileConflict(null)
+          }
+          return
+        }
+
+        const localFlat = flattenNodes(local.tree)
+        const remoteFlat = flattenNodes(remote.state.tree)
+        const localDiffed = buildDiffedTree(local.tree, remoteFlat)
+        const remoteDiffed = buildDiffedTree(remote.state.tree, localFlat)
+        const localSummary = computeDiffSummary(localDiffed, remoteFlat, local.tree)
+        const remoteSummary = computeDiffSummary(remoteDiffed, localFlat, remote.state.tree)
+
+        const bothEmpty =
+          localSummary.added === 0 &&
+          localSummary.modified === 0 &&
+          localSummary.removed === 0 &&
+          remoteSummary.added === 0 &&
+          remoteSummary.modified === 0 &&
+          remoteSummary.removed === 0
+
+        if (bothEmpty) {
+          const localFingerprint = buildStateFingerprint(local)
+          lastSyncedFingerprintRef.current = localFingerprint
+          await savePersistedState({
+            ...local,
+            localUpdatedAtMs: Date.now(),
+            lastSyncedFingerprint: localFingerprint,
+            serverUpdatedAtMs:
+              remote.serverUpdatedAtMs || local.serverUpdatedAtMs,
+          })
           if (!isCancelled) {
             setLoginReconcileConflict(null)
           }
