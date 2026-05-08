@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const PRESET_MINUTES = [25, 15, 5] as const
-const TICK_MS = 1000
+const TICK_MS = 500
 
 function toClock(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
@@ -14,6 +14,7 @@ export function FocusPomodoro() {
   const [remainingSeconds, setRemainingSeconds] = useState<number>(25 * 60)
   const [isRunning, setIsRunning] = useState(false)
   const [sessionsCompleted, setSessionsCompleted] = useState(0)
+  const endsAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!isRunning) {
@@ -21,16 +22,19 @@ export function FocusPomodoro() {
     }
 
     const timerId = window.setInterval(() => {
-      setRemainingSeconds((prev) => {
-        if (prev <= 1) {
-          window.clearInterval(timerId)
-          setIsRunning(false)
-          setSessionsCompleted((count) => count + 1)
-          return 0
-        }
+      if (endsAtRef.current === null) {
+        return
+      }
 
-        return prev - 1
-      })
+      const secs = Math.max(0, Math.ceil((endsAtRef.current - Date.now()) / 1000))
+      setRemainingSeconds(secs)
+
+      if (secs === 0) {
+        window.clearInterval(timerId)
+        setIsRunning(false)
+        setSessionsCompleted((count) => count + 1)
+        endsAtRef.current = null
+      }
     }, TICK_MS)
 
     return () => window.clearInterval(timerId)
@@ -46,18 +50,27 @@ export function FocusPomodoro() {
     setDurationMinutes(minutes)
     setRemainingSeconds(minutes * 60)
     setIsRunning(false)
+    endsAtRef.current = null
   }
 
   const startOrResume = () => {
+    const seconds = isFinished ? durationMinutes * 60 : remainingSeconds
+    endsAtRef.current = Date.now() + seconds * 1000
     if (isFinished) {
       setRemainingSeconds(durationMinutes * 60)
     }
     setIsRunning(true)
   }
 
+  const pause = () => {
+    setIsRunning(false)
+    endsAtRef.current = null
+  }
+
   const reset = () => {
     setIsRunning(false)
     setRemainingSeconds(durationMinutes * 60)
+    endsAtRef.current = null
   }
 
   return (
@@ -90,7 +103,7 @@ export function FocusPomodoro() {
         >
           {isRunning ? 'Running' : isFinished ? 'Restart' : 'Start'}
         </button>
-        <button className="focus-pomo-btn" onClick={() => setIsRunning(false)}>
+        <button className="focus-pomo-btn" onClick={pause}>
           Pause
         </button>
         <button className="focus-pomo-btn" onClick={reset}>
