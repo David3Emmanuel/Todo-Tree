@@ -1,4 +1,12 @@
-import type { Breadcrumb, DropPosition, HarvestPriority, HarvestSection, HarvestTreeNode, StarredItem, TreeNode } from './types'
+import type {
+  Breadcrumb,
+  DropPosition,
+  HarvestPriority,
+  HarvestSection,
+  HarvestTreeNode,
+  StarredItem,
+  TreeNode,
+} from './types'
 
 export type SuggestionItem = {
   node: TreeNode
@@ -433,9 +441,39 @@ export function getNextActionSuggestions(
     return []
   }
 
-  const pool = suggestions
-    .sort((left, right) => right.score - left.score)
-    .slice(0, Math.max(limit * 4, 8))
+  const sortedSuggestions = suggestions.sort(
+    (left, right) => right.score - left.score,
+  )
+
+  const filteredSuggestions: SuggestionItem[] = []
+
+  const conflictsWithSelected = (candidate: SuggestionItem): boolean =>
+    filteredSuggestions.some((selected) => {
+      const shorterPath =
+        selected.path.length <= candidate.path.length
+          ? selected.path
+          : candidate.path
+      const longerPath =
+        selected.path.length > candidate.path.length
+          ? selected.path
+          : candidate.path
+
+      if (shorterPath.length === longerPath.length) {
+        return false
+      }
+
+      return shorterPath.every(
+        (crumb, index) => crumb.id === longerPath[index].id,
+      )
+    })
+
+  for (const suggestion of sortedSuggestions) {
+    if (!conflictsWithSelected(suggestion)) {
+      filteredSuggestions.push(suggestion)
+    }
+  }
+
+  const pool = filteredSuggestions.slice(0, Math.max(limit * 4, 8))
 
   const rng = mulberry32(
     hashString(`${seed}|${pool.map((item) => item.node.id).join(',')}`),
