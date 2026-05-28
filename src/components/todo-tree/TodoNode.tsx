@@ -146,39 +146,59 @@ export function TodoNode({
     )
   }
 
+  const applyExpansion = (
+    prev: TreeNode[],
+    nodeId: string,
+    finalText: string,
+    committedId: string,
+    expanded: ReturnType<typeof parseSubtaskPattern>,
+  ): TreeNode[] => {
+    const needsIdOrTextUpdate = committedId !== nodeId || (expanded && finalText !== node.text)
+    let next = needsIdOrTextUpdate
+      ? upd(prev, nodeId, (t) => {
+          t.id = committedId
+          if (expanded) t.text = finalText
+        })
+      : prev
+    if (expanded) {
+      const children = generateChildNodes(next, expanded.childPrefix, expanded.start, expanded.end)
+      next = upd(next, committedId, (t) => {
+        t.children.push(...children)
+        t.collapsed = false
+      })
+    }
+    return next
+  }
+
   const onKey = (event: React.KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && event.shiftKey) {
       event.preventDefault()
-      const committedId = getCommittedId(node.id, node.text)
+      const expanded = parseSubtaskPattern(node.text)
+      const finalText = expanded ? expanded.parentText : node.text
+      const committedId = getCommittedId(node.id, finalText)
       updateZoomForCommittedId(node.id, committedId)
       setTree((prev) => {
-        const treeWithCommittedId =
-          committedId === node.id
-            ? prev
-            : upd(prev, node.id, (target) => {
-                target.id = committedId
-              })
-        const childNode = makeNode(treeWithCommittedId)
+        const next = applyExpansion(prev, node.id, finalText, committedId, expanded)
+        if (expanded) return next
+        const childNode = makeNode(next)
         pendingEditingIdRef.current = childNode.id
-        return upd(treeWithCommittedId, committedId, (target) => {
+        return upd(next, committedId, (target) => {
           target.children.push(childNode)
           target.collapsed = false
         })
       })
     } else if (event.key === 'Enter') {
       event.preventDefault()
-      const committedId = getCommittedId(node.id, node.text)
+      const expanded = parseSubtaskPattern(node.text)
+      const finalText = expanded ? expanded.parentText : node.text
+      const committedId = getCommittedId(node.id, finalText)
       updateZoomForCommittedId(node.id, committedId)
       setTree((prev) => {
-        const treeWithCommittedId =
-          committedId === node.id
-            ? prev
-            : upd(prev, node.id, (target) => {
-                target.id = committedId
-              })
-        const nextNode = makeNode(treeWithCommittedId)
+        const next = applyExpansion(prev, node.id, finalText, committedId, expanded)
+        if (expanded) return next
+        const nextNode = makeNode(next)
         pendingEditingIdRef.current = nextNode.id
-        return addSib(treeWithCommittedId, committedId, nextNode)
+        return addSib(next, committedId, nextNode)
       })
     } else if (event.key === 'Tab' && !event.shiftKey) {
       event.preventDefault()
@@ -211,17 +231,11 @@ export function TodoNode({
       setTree((prev) => rem(prev, node.id))
       setEditingId(null)
     } else if (event.key === 'Escape') {
-      const committedId = getCommittedId(node.id, node.text)
+      const expanded = parseSubtaskPattern(node.text)
+      const finalText = expanded ? expanded.parentText : node.text
+      const committedId = getCommittedId(node.id, finalText)
       updateZoomForCommittedId(node.id, committedId)
-      setTree((prev) => {
-        if (committedId === node.id) {
-          return prev
-        }
-
-        return upd(prev, node.id, (target) => {
-          target.id = committedId
-        })
-      })
+      setTree((prev) => applyExpansion(prev, node.id, finalText, committedId, expanded))
       setEditingId(null)
     }
   }
@@ -339,17 +353,11 @@ export function TodoNode({
             }}
             onKeyDown={onKey}
             onBlur={() => {
-              const committedId = getCommittedId(node.id, node.text)
+              const expanded = parseSubtaskPattern(node.text)
+              const finalText = expanded ? expanded.parentText : node.text
+              const committedId = getCommittedId(node.id, finalText)
               updateZoomForCommittedId(node.id, committedId)
-              setTree((prev) => {
-                if (committedId === node.id) {
-                  return prev
-                }
-
-                return upd(prev, node.id, (target) => {
-                  target.id = committedId
-                })
-              })
+              setTree((prev) => applyExpansion(prev, node.id, finalText, committedId, expanded))
               setEditingId(null)
             }}
             placeholder="Task name..."

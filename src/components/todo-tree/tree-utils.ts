@@ -724,3 +724,67 @@ export function expandAll(tree: TreeNode[]): TreeNode[] {
   walk(clone)
   return clone
 }
+
+export function parseSubtaskPattern(text: string): {
+  parentText: string
+  childPrefix: string
+  start: number
+  end: number
+} | null {
+  const match = /\{(\d+)\.\.(\d+)\}/.exec(text)
+  if (!match) return null
+  const start = parseInt(match[1], 10)
+  const end = parseInt(match[2], 10)
+  if (start > end || end - start > 99) return null
+  const beforePattern = text.slice(0, match.index).trim()
+  const slashIdx = beforePattern.indexOf('/')
+  let parentText: string
+  let childPrefix: string
+  if (slashIdx !== -1) {
+    parentText = beforePattern.slice(0, slashIdx).trim()
+    childPrefix = beforePattern.slice(slashIdx + 1).trim()
+  } else {
+    parentText = beforePattern
+    childPrefix = beforePattern
+  }
+  return { parentText, childPrefix, start, end }
+}
+
+export function generateChildNodes(
+  tree: TreeNode[],
+  childPrefix: string,
+  start: number,
+  end: number,
+): TreeNode[] {
+  const usedIds = new Set<string>()
+  const collectIds = (nodes: TreeNode[]): void => {
+    for (const n of nodes) {
+      usedIds.add(n.id)
+      collectIds(n.children)
+    }
+  }
+  collectIds(tree)
+
+  const children: TreeNode[] = []
+  for (let i = start; i <= end; i++) {
+    const text = childPrefix ? `${childPrefix} ${i}` : String(i)
+    const base = uid(text)
+    let id = base
+    let counter = 2
+    while (usedIds.has(id)) {
+      id = `${base}-${counter}`
+      counter++
+    }
+    usedIds.add(id)
+    children.push({
+      id,
+      text,
+      kind: 'task',
+      completed: false,
+      collapsed: false,
+      starred: false,
+      children: [],
+    })
+  }
+  return children
+}
