@@ -1970,6 +1970,12 @@ body,
   background: #e8c547;
   color: #1a1714;
 }
+.due-badge--done {
+  background: transparent;
+  color: #6b6560;
+  border: 1px solid #3a3530;
+  font-weight: 400;
+}
 
 .date-input-hidden {
   position: fixed;

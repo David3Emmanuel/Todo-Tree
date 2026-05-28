@@ -381,7 +381,7 @@ export function TodoNode({
 
         {node.dueDate && (
           <span
-            className={`due-badge due-badge--${classifyDueDate(node.dueDate)}`}
+            className={`due-badge due-badge--${classifyDueDate(node.dueDate)}${allDone ? ' due-badge--done' : ''}`}
             title={`Due: ${node.dueDate}`}
             aria-label={`Due ${formatDueDate(node.dueDate)}`}
           >
