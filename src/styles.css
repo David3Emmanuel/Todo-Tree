@@ -2278,6 +2278,7 @@ body,
   right: 1rem;
   z-index: 3;
   pointer-events: auto;
+  will-change: transform;
 }
 
 .focus-note-toggle,
@@ -2300,6 +2301,8 @@ body,
   overflow: hidden;
   color: #6c5315;
   text-align: left;
+  touch-action: none;
+  user-select: none;
 }
 
 .focus-note-toggle:hover {
@@ -2385,10 +2388,15 @@ body,
 
 .focus-note-stage.closed .focus-note-toggle {
   transform-origin: top right;
+  cursor: grab;
 }
 
 .focus-note-stage.closed .focus-note-toggle:hover {
   transform: translateY(-1px) rotate(-1.6deg) scale(1.02) translateX(-0.05rem);
+}
+
+.focus-note-stage.closed .focus-note-toggle:active {
+  cursor: grabbing;
 }
 
 .focus-note-fold {

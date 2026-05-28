@@ -25,11 +25,23 @@ export function HarvestFocusModal({
 }: HarvestFocusModalProps) {
   const [isNoteOpen, setIsNoteOpen] = useState(false)
   const [noteDraft, setNoteDraft] = useState(focusRoot.note ?? '')
+  const [stickyOffset, setStickyOffset] = useState({ x: 0, y: 0 })
+  const [isStickyDragging, setIsStickyDragging] = useState(false)
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const stickyDragRef = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    originX: number
+    originY: number
+  } | null>(null)
+  const stickyDraggedRef = useRef(false)
 
   useEffect(() => {
     setIsNoteOpen(false)
     setNoteDraft(focusRoot.note ?? '')
+    setStickyOffset({ x: 0, y: 0 })
+    setIsStickyDragging(false)
   }, [focusRoot.id, focusRoot.note])
 
   useEffect(() => {
@@ -46,6 +58,53 @@ export function HarvestFocusModal({
     input.focus()
     input.setSelectionRange(end, end)
   }, [isNoteOpen])
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      const drag = stickyDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) {
+        return
+      }
+
+      const dx = event.clientX - drag.startX
+      const dy = event.clientY - drag.startY
+
+      if (!stickyDraggedRef.current) {
+        const movedFarEnough = Math.abs(dx) > 4 || Math.abs(dy) > 4
+        if (!movedFarEnough) {
+          return
+        }
+
+        stickyDraggedRef.current = true
+        setIsStickyDragging(true)
+      }
+
+      setStickyOffset({
+        x: drag.originX + dx,
+        y: drag.originY + dy,
+      })
+    }
+
+    const stopDrag = (event: PointerEvent) => {
+      const drag = stickyDragRef.current
+      if (!drag || drag.pointerId !== event.pointerId) {
+        return
+      }
+
+      stickyDragRef.current = null
+      setIsStickyDragging(false)
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', stopDrag)
+    window.addEventListener('pointercancel', stopDrag)
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', stopDrag)
+      window.removeEventListener('pointercancel', stopDrag)
+    }
+  }, [])
 
   const commitNote = (nextNote: string) => {
     setTree((prev) =>
@@ -83,6 +142,9 @@ export function HarvestFocusModal({
         <div
           className={`focus-note-stage${isNoteOpen ? ' open' : ' closed'}`}
           aria-label="Sticky note"
+          style={{
+            transform: `translate3d(${stickyOffset.x}px, ${stickyOffset.y}px, 0)`,
+          }}
         >
           {isNoteOpen ? (
             <div className="focus-note-card">
@@ -105,7 +167,26 @@ export function HarvestFocusModal({
           ) : (
             <button
               className="focus-note-toggle"
-              onClick={() => {
+              type="button"
+              onPointerDown={(event) => {
+                stickyDragRef.current = {
+                  pointerId: event.pointerId,
+                  startX: event.clientX,
+                  startY: event.clientY,
+                  originX: stickyOffset.x,
+                  originY: stickyOffset.y,
+                }
+                stickyDraggedRef.current = false
+                event.currentTarget.setPointerCapture(event.pointerId)
+              }}
+              onClick={(event) => {
+                if (stickyDraggedRef.current) {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  stickyDraggedRef.current = false
+                  return
+                }
+
                 setNoteDraft(focusRoot.note ?? '')
                 setIsNoteOpen(true)
               }}
@@ -113,6 +194,7 @@ export function HarvestFocusModal({
                 focusRoot.note ? 'Open sticky note' : 'Add sticky note'
               }
               title={focusRoot.note ? 'Open sticky note' : 'Add sticky note'}
+              style={{ cursor: isStickyDragging ? 'grabbing' : 'grab' }}
             >
               <span className="focus-note-label">
                 {focusRoot.note?.trim() || 'Add sticky note'}
