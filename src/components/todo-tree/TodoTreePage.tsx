@@ -704,6 +704,8 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     zoom,
     setZoom: setZoomFromUi,
     openHideMenu,
+    openFocus,
+    closeFocus,
   }
 
   return (

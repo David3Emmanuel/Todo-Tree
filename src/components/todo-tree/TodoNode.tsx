@@ -58,15 +58,16 @@ export function TodoNode({
   node: TreeNode
   depth?: number
 }) {
-  const {
-    tree,
-    setTree,
-    editingId,
-    setEditingId,
-    zoom,
-    setZoom,
-    openHideMenu,
-  } = useTodoCtx()
+    const {
+      tree,
+      setTree,
+      editingId,
+      setEditingId,
+      zoom,
+      setZoom,
+      openHideMenu,
+      openFocus,
+    } = useTodoCtx()
   const [dropPos, setDropPos] = useState<DropPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
@@ -592,6 +593,16 @@ export function TodoNode({
                     Zoom in
                   </button>
                 )}
+                <button
+                  className="node-menu-item"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    openFocus(node.id)
+                  }}
+                >
+                  <ZoomIn className="icon-xs" aria-hidden="true" />
+                  Focus
+                </button>
                 <button
                   className="node-menu-item"
                   onClick={() => {

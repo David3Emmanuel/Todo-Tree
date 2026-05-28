@@ -55,6 +55,8 @@ export type CtxValue = {
   zoom: Breadcrumb[]
   setZoom: Dispatch<SetStateAction<Breadcrumb[]>>
   openHideMenu: (nodeId: string) => void
+  openFocus: (nodeId: string) => void
+  closeFocus: () => void
 }
 
 export type PersistedState = {
