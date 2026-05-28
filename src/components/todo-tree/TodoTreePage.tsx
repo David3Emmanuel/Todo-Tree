@@ -1101,7 +1101,11 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
             </div>
 
             {focusRoot && (
-              <HarvestFocusModal focusRoot={focusRoot} onClose={closeFocus}>
+              <HarvestFocusModal
+                focusRoot={focusRoot}
+                setTree={setTree}
+                onClose={closeFocus}
+              >
                 <FocusNode
                   node={focusRoot}
                   setTree={setTree}

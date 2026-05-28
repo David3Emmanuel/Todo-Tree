@@ -229,7 +229,11 @@ export function HarvestView() {
       ))}
 
       {focusRoot && (
-        <HarvestFocusModal focusRoot={focusRoot} onClose={closeFocus}>
+        <HarvestFocusModal
+          focusRoot={focusRoot}
+          setTree={setTree}
+          onClose={closeFocus}
+        >
           <FocusNode
             node={focusRoot}
             setTree={setTree}

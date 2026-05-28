@@ -1,6 +1,5 @@
 import { Check, FolderTree, Minus } from 'lucide-react'
-import { getProgress, toggleTree, upd } from './tree-utils'
-import { useState } from 'react'
+import { getProgress, toggleTree } from './tree-utils'
 import type { Dispatch, SetStateAction } from 'react'
 import type { TreeNode } from './types'
 
@@ -21,8 +20,6 @@ export function FocusNode({
   const { done, total } = getProgress(node)
   const allDone = !isFolder && total > 0 && done === total
   const someDone = !isFolder && !allDone && done > 0
-  const [editingNote, setEditingNote] = useState(false)
-  const [noteDraft, setNoteDraft] = useState(node.note ?? '')
 
   return (
     <div key={node.id} className="focus-node-wrap">
@@ -60,54 +57,6 @@ export function FocusNode({
               {done}/{total} complete
             </div>
           )}
-          <div style={{ marginTop: 8 }}>
-            {editingNote ? (
-              <div>
-                <textarea
-                  className="sticky-note-input"
-                  value={noteDraft}
-                  onChange={(e) => setNoteDraft(e.target.value)}
-                  rows={3}
-                />
-                <div style={{ marginTop: 6 }}>
-                  <button
-                    className="btn"
-                    onClick={() => {
-                      setTree((prev) =>
-                        upd(prev, node.id, (target) => {
-                          target.note = noteDraft || undefined
-                        }),
-                      )
-                      setEditingNote(false)
-                    }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    className="btn btn--muted"
-                    onClick={() => {
-                      setNoteDraft(node.note ?? '')
-                      setEditingNote(false)
-                    }}
-                    style={{ marginLeft: 8 }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : node.note ? (
-              <div className="sticky-note" onClick={() => setEditingNote(true)}>
-                {node.note}
-              </div>
-            ) : (
-              <button
-                className="btn btn--link"
-                onClick={() => setEditingNote(true)}
-              >
-                Add note
-              </button>
-            )}
-          </div>
         </div>
       </div>
       {node.children.length > 0 && (
