@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { type Dispatch, type SetStateAction } from 'react'
 import { X } from 'lucide-react'
 import { FocusPomodoro } from './FocusPomodoro'
 import { upd } from './tree-utils'
@@ -17,14 +17,6 @@ export function HarvestFocusModal({
   onClose,
   children,
 }: HarvestFocusModalProps) {
-  const [isEditingNote, setIsEditingNote] = useState(false)
-  const [noteDraft, setNoteDraft] = useState(focusRoot.note ?? '')
-
-  useEffect(() => {
-    setNoteDraft(focusRoot.note ?? '')
-    setIsEditingNote(false)
-  }, [focusRoot.id, focusRoot.note])
-
   return (
     <div className="focus-modal-backdrop" onClick={onClose}>
       <section
@@ -50,59 +42,22 @@ export function HarvestFocusModal({
             <X className="icon-sm" aria-hidden="true" />
           </button>
         </div>
-        <div className="focus-note-shell">
-          {isEditingNote ? (
-            <>
-              <textarea
-                className="focus-note-input"
-                value={noteDraft}
-                onChange={(event) => setNoteDraft(event.target.value)}
-                placeholder="Add a sticky note..."
-                rows={4}
-              />
-              <div className="focus-note-actions">
-                <button
-                  className="focus-note-save"
-                  onClick={() => {
-                    setTree((prev) =>
-                      upd(prev, focusRoot.id, (target) => {
-                        target.note = noteDraft.trim() || undefined
-                      }),
-                    )
-                    setIsEditingNote(false)
-                  }}
-                >
-                  Save
-                </button>
-                <button
-                  className="focus-note-cancel"
-                  onClick={() => {
-                    setNoteDraft(focusRoot.note ?? '')
-                    setIsEditingNote(false)
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </>
-          ) : focusRoot.note ? (
-            <button
-              className="focus-note"
-              onClick={() => setIsEditingNote(true)}
-              title="Edit note"
-            >
-              {focusRoot.note}
-            </button>
-          ) : (
-            <button
-              className="focus-note focus-note-empty"
-              onClick={() => setIsEditingNote(true)}
-              title="Add note"
-            >
-              Add sticky note
-            </button>
-          )}
-        </div>
+        <textarea
+          className="focus-note-input"
+          value={focusRoot.note ?? ''}
+          onChange={(event) => {
+            const nextNote = event.target.value
+            setTree((prev) =>
+              upd(prev, focusRoot.id, (target) => {
+                target.note = nextNote || undefined
+              }),
+            )
+          }}
+          placeholder="Add a sticky note..."
+          rows={6}
+          autoFocus
+          aria-label="Sticky note"
+        />
         <FocusPomodoro />
         <div className="focus-modal-body">{children}</div>
       </section>
