@@ -280,6 +280,18 @@ export function getHarvestSections(nodes: TreeNode[]): HarvestSection[] {
     .map((p) => ({ priority: p, items: buckets[p] }))
 }
 
+export function flattenVisibleNodes(nodes: TreeNode[]): TreeNode[] {
+  const result: TreeNode[] = []
+  const walk = (list: TreeNode[]) => {
+    for (const n of list) {
+      result.push(n)
+      if (n.children.length && !n.collapsed) walk(n.children)
+    }
+  }
+  walk(nodes)
+  return result
+}
+
 function hashString(value: string): number {
   let hash = 2166136261
 

@@ -36,12 +36,17 @@ import {
   rem,
   toggleTree,
   upd,
+  findNode,
+  flattenVisibleNodes,
 } from './tree-utils'
 import { TreeSearchDropdown } from './TreeSearchDropdown'
 
 function getSubtreeIds(n: TreeNode): Set<string> {
   const ids = new Set<string>()
-  const walk = (nd: TreeNode) => { ids.add(nd.id); nd.children.forEach(walk) }
+  const walk = (nd: TreeNode) => {
+    ids.add(nd.id)
+    nd.children.forEach(walk)
+  }
   walk(n)
   return ids
 }
@@ -53,7 +58,15 @@ export function TodoNode({
   node: TreeNode
   depth?: number
 }) {
-  const { tree, setTree, editingId, setEditingId, setZoom, openHideMenu } = useTodoCtx()
+  const {
+    tree,
+    setTree,
+    editingId,
+    setEditingId,
+    zoom,
+    setZoom,
+    openHideMenu,
+  } = useTodoCtx()
   const [dropPos, setDropPos] = useState<DropPosition | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [menuStyle, setMenuStyle] = useState<CSSProperties>({})
@@ -160,7 +173,8 @@ export function TodoNode({
     committedId: string,
     expanded: ReturnType<typeof parseSubtaskPattern>,
   ): TreeNode[] => {
-    const needsIdOrTextUpdate = committedId !== nodeId || (expanded && finalText !== node.text)
+    const needsIdOrTextUpdate =
+      committedId !== nodeId || (expanded && finalText !== node.text)
     let next = needsIdOrTextUpdate
       ? upd(prev, nodeId, (t) => {
           t.id = committedId
@@ -168,7 +182,12 @@ export function TodoNode({
         })
       : prev
     if (expanded) {
-      const children = generateChildNodes(next, expanded.childPrefix, expanded.start, expanded.end)
+      const children = generateChildNodes(
+        next,
+        expanded.childPrefix,
+        expanded.start,
+        expanded.end,
+      )
       next = upd(next, committedId, (t) => {
         t.children.push(...children)
         t.collapsed = false
@@ -178,6 +197,20 @@ export function TodoNode({
   }
 
   const onKey = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      const zoomedNode = zoom.length
+        ? findNode(tree, zoom[zoom.length - 1].id)
+        : null
+      const display = zoomedNode ? zoomedNode.children : tree
+      const visible = flattenVisibleNodes(display)
+      const idx = visible.findIndex((n) => n.id === node.id)
+      const nextIdx = event.key === 'ArrowUp' ? idx - 1 : idx + 1
+      if (nextIdx >= 0 && nextIdx < visible.length) {
+        setEditingId(visible[nextIdx].id)
+      }
+      return
+    }
     if (event.key === 'Enter' && event.shiftKey) {
       event.preventDefault()
       const expanded = parseSubtaskPattern(node.text)
@@ -185,7 +218,13 @@ export function TodoNode({
       const committedId = getCommittedId(node.id, finalText)
       updateZoomForCommittedId(node.id, committedId)
       setTree((prev) => {
-        const next = applyExpansion(prev, node.id, finalText, committedId, expanded)
+        const next = applyExpansion(
+          prev,
+          node.id,
+          finalText,
+          committedId,
+          expanded,
+        )
         if (expanded) return next
         const childNode = makeNode(next)
         pendingEditingIdRef.current = childNode.id
@@ -201,7 +240,13 @@ export function TodoNode({
       const committedId = getCommittedId(node.id, finalText)
       updateZoomForCommittedId(node.id, committedId)
       setTree((prev) => {
-        const next = applyExpansion(prev, node.id, finalText, committedId, expanded)
+        const next = applyExpansion(
+          prev,
+          node.id,
+          finalText,
+          committedId,
+          expanded,
+        )
         if (expanded) return next
         const nextNode = makeNode(next)
         pendingEditingIdRef.current = nextNode.id
@@ -242,7 +287,9 @@ export function TodoNode({
       const finalText = expanded ? expanded.parentText : node.text
       const committedId = getCommittedId(node.id, finalText)
       updateZoomForCommittedId(node.id, committedId)
-      setTree((prev) => applyExpansion(prev, node.id, finalText, committedId, expanded))
+      setTree((prev) =>
+        applyExpansion(prev, node.id, finalText, committedId, expanded),
+      )
       setEditingId(null)
     }
   }
@@ -364,7 +411,9 @@ export function TodoNode({
               const finalText = expanded ? expanded.parentText : node.text
               const committedId = getCommittedId(node.id, finalText)
               updateZoomForCommittedId(node.id, committedId)
-              setTree((prev) => applyExpansion(prev, node.id, finalText, committedId, expanded))
+              setTree((prev) =>
+                applyExpansion(prev, node.id, finalText, committedId, expanded),
+              )
               setEditingId(null)
             }}
             placeholder="Task name..."
@@ -550,7 +599,9 @@ export function TodoNode({
                   }}
                 >
                   <CalendarDays className="icon-xs" aria-hidden="true" />
-                  {node.dueDate ? `Due: ${formatDueDate(node.dueDate)}` : 'Set due date'}
+                  {node.dueDate
+                    ? `Due: ${formatDueDate(node.dueDate)}`
+                    : 'Set due date'}
                 </button>
                 <input
                   ref={dateInputRef}
