@@ -247,6 +247,33 @@ export function getHarvestSections(nodes: TreeNode[]): HarvestSection[] {
   for (const item of forest) {
     buckets[item.maxPriority].push(item)
   }
+  // Sort top-level parents in the `soon` bucket by earliest due-date (ascending).
+  // Preserve traversal order for ties (stable by original index).
+  const earliestDueDate = (h: HarvestTreeNode): string | undefined => {
+    let best: string | undefined = h.node.dueDate
+    for (const child of h.harvestChildren) {
+      const c = earliestDueDate(child)
+      if (!c) continue
+      if (!best || c < best) best = c
+    }
+    return best
+  }
+
+  buckets.soon = buckets.soon
+    .map((item, idx) => ({ item, idx, ed: earliestDueDate(item) }))
+    .sort((a, b) => {
+      const aEd = a.ed
+      const bEd = b.ed
+      if (aEd && bEd) {
+        if (aEd < bEd) return -1
+        if (aEd > bEd) return 1
+        return a.idx - b.idx
+      }
+      if (aEd && !bEd) return -1
+      if (!aEd && bEd) return 1
+      return a.idx - b.idx
+    })
+    .map(({ item }) => item)
   const order: HarvestPriority[] = ['starred', 'today', 'soon']
   return order
     .filter((p) => buckets[p].length > 0)
@@ -275,7 +302,6 @@ function mulberry32(seed: number): () => number {
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296
   }
 }
-
 
 function getSuggestionReason({
   node,
