@@ -126,6 +126,23 @@ export function getAllStarred(
   return result
 }
 
+export function formatDueDate(dueDate: string): string {
+  const cls = classifyDueDate(dueDate)
+  if (cls === 'overdue') return 'Overdue'
+  if (cls === 'today') return 'Today'
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (dueDate === tomorrow.toISOString().slice(0, 10)) return 'Tomorrow'
+  const [year, month, day] = dueDate.split('-').map(Number)
+  const d = new Date(year, month - 1, day)
+  const thisYear = new Date().getFullYear()
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() !== thisYear ? { year: 'numeric' } : {}),
+  })
+}
+
 export function classifyDueDate(dueDate: string): DueDateClass {
   const today = new Date().toISOString().slice(0, 10)
   if (dueDate < today) return 'overdue'
