@@ -1,6 +1,13 @@
 import { Check, FolderTree, Wheat, WheatOff, X } from 'lucide-react'
 import { useTodoCtx } from './todo-context'
-import { getHarvestSections, getProgress, toggleTree, upd } from './tree-utils'
+import {
+  getHarvestSections,
+  getProgress,
+  toggleTree,
+  upd,
+  formatDueDate,
+  classifyDueDate,
+} from './tree-utils'
 import { HarvestFocusModal } from './HarvestFocusModal'
 import { useFocus } from './useFocus'
 import { FocusNode } from './FocusNode'
@@ -101,6 +108,16 @@ function HarvestItem({
           >
             {node.text}
           </div>
+          {node.dueDate && item.maxPriority !== 'starred' && (
+            <span
+              className={`due-badge due-badge--${classifyDueDate(node.dueDate)}${allDone ? ' due-badge--done' : ''}`}
+              title={`Due: ${node.dueDate}`}
+              aria-label={`Due ${formatDueDate(node.dueDate)}`}
+              style={{ marginLeft: 8 }}
+            >
+              {formatDueDate(node.dueDate)}
+            </span>
+          )}
           {depth === 0 && item.path.length > 0 && (
             <div className="h-path">{item.path.join(' > ')}</div>
           )}
