@@ -8,8 +8,8 @@ import type { Breadcrumb, HarvestPriority, HarvestTreeNode } from './types'
 
 const SECTION_LABELS: Record<HarvestPriority, string> = {
   starred: 'Starred',
-  today: 'Today',
-  soon: 'Soon',
+  today: 'Today & Overdue',
+  soon: 'Upcoming',
 }
 
 function findBreadcrumbPath(
@@ -120,7 +120,7 @@ function HarvestItem({
         {(item.ownPriority === 'today' || item.ownPriority === 'soon') && (
           <button
             className="act"
-            title="Clear urgency"
+            title="Clear due date"
             onClick={(event) => {
               event.stopPropagation()
               onClearUrgency(node.id)
@@ -174,7 +174,7 @@ export function HarvestView() {
   const onClearUrgency = (id: string) => {
     setTree((prev) =>
       upd(prev, id, (target) => {
-        target.urgency = undefined
+        target.dueDate = undefined
       }),
     )
   }

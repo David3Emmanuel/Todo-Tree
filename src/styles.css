@@ -1946,21 +1946,39 @@ body,
   }
 }
 
-.urgency-pip {
+.due-badge {
   display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
   flex-shrink: 0;
-  background: #4a443e;
-}
-.urgency-pip[data-urgency='soon'],
-.urgency-pip--soon {
+  white-space: nowrap;
   background: #e8c547;
+  color: #1a1714;
 }
-.urgency-pip[data-urgency='today'],
-.urgency-pip--today {
+.due-badge--today {
   background: #e8614a;
+  color: #fff;
+}
+.due-badge--overdue {
+  background: #c0392b;
+  color: #fff;
+}
+.due-badge--soon {
+  background: #e8c547;
+  color: #1a1714;
+}
+
+.date-input-hidden {
+  position: fixed;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  padding: 0;
 }
 
 .pin-action {

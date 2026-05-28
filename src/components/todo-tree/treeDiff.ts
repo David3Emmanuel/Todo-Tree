@@ -31,7 +31,7 @@ function contentEqual(a: TreeNode, b: TreeNode): boolean {
   return (
     a.text === b.text &&
     a.kind === b.kind &&
-    a.urgency === b.urgency &&
+    a.dueDate === b.dueDate &&
     a.completed === b.completed &&
     a.starred === b.starred
   )

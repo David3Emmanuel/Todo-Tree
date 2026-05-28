@@ -4,7 +4,7 @@ export type TreeNode = {
   id: string
   text: string
   kind?: 'task' | 'folder'
-  urgency?: 'soon' | 'today'
+  dueDate?: string
   completed: boolean
   collapsed: boolean
   starred: boolean
@@ -23,6 +23,7 @@ export type StarredItem = TreeNode & {
 }
 
 export type HarvestPriority = 'starred' | 'today' | 'soon'
+export type DueDateClass = 'overdue' | 'today' | 'soon'
 
 export type HarvestTreeNode = {
   node: TreeNode

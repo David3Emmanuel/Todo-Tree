@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Portal } from './Portal'
 import {
+  CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -14,24 +15,45 @@ import {
   Trash2,
   Wheat,
   WheatOff,
+  X,
   ZoomIn,
 } from 'lucide-react'
 import { useTodoCtx } from './todo-context'
 import type { DropPosition, TreeNode } from './types'
 import {
   addSib,
+  classifyDueDate,
   countDescendants,
+  generateChildNodes,
   getProgress,
   indentN,
   makeNode,
   makeUniqueUid,
   moveN,
   outdentN,
+  parseSubtaskPattern,
   rem,
   toggleTree,
   upd,
 } from './tree-utils'
 import { TreeSearchDropdown } from './TreeSearchDropdown'
+
+function formatDueDate(dueDate: string): string {
+  const cls = classifyDueDate(dueDate)
+  if (cls === 'overdue') return 'Overdue'
+  if (cls === 'today') return 'Today'
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (dueDate === tomorrow.toISOString().slice(0, 10)) return 'Tomorrow'
+  const [year, month, day] = dueDate.split('-').map(Number)
+  const d = new Date(year, month - 1, day)
+  const thisYear = new Date().getFullYear()
+  return d.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(d.getFullYear() !== thisYear ? { year: 'numeric' } : {}),
+  })
+}
 
 function getSubtreeIds(n: TreeNode): Set<string> {
   const ids = new Set<string>()
@@ -54,6 +76,7 @@ export function TodoNode({
   const [movePickerOpen, setMovePickerOpen] = useState(false)
   const pendingEditingIdRef = useRef<string | null>(null)
   const moreRef = useRef<HTMLButtonElement>(null)
+  const dateInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!pendingEditingIdRef.current) {
@@ -372,13 +395,14 @@ export function TodoNode({
           </span>
         )}
 
-        {node.urgency && (
+        {node.dueDate && (
           <span
-            className="urgency-pip"
-            data-urgency={node.urgency}
-            title={node.urgency === 'today' ? 'Urgency: Today' : 'Urgency: Soon'}
-            aria-label={node.urgency === 'today' ? 'Urgent today' : 'Urgent soon'}
-          />
+            className={`due-badge due-badge--${classifyDueDate(node.dueDate)}`}
+            title={`Due: ${node.dueDate}`}
+            aria-label={`Due ${formatDueDate(node.dueDate)}`}
+          >
+            {formatDueDate(node.dueDate)}
+          </span>
         )}
 
         {hasKids && !isLeaf && (
@@ -538,29 +562,43 @@ export function TodoNode({
                 <button
                   className="node-menu-item"
                   onClick={() => {
+                    dateInputRef.current?.showPicker?.()
+                  }}
+                >
+                  <CalendarDays className="icon-xs" aria-hidden="true" />
+                  {node.dueDate ? `Due: ${formatDueDate(node.dueDate)}` : 'Set due date'}
+                </button>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  className="date-input-hidden"
+                  value={node.dueDate ?? ''}
+                  onChange={(e) => {
+                    const val = e.target.value
                     setTree((prev) =>
                       upd(prev, node.id, (target) => {
-                        if (!target.urgency) {
-                          target.urgency = 'soon'
-                        } else if (target.urgency === 'soon') {
-                          target.urgency = 'today'
-                        } else {
-                          target.urgency = undefined
-                        }
+                        target.dueDate = val || undefined
                       }),
                     )
                     setMenuOpen(false)
                   }}
-                >
-                  <span
-                    className={`urgency-pip${node.urgency ? ` urgency-pip--${node.urgency}` : ' urgency-pip--none'}`}
-                  />
-                  {!node.urgency
-                    ? 'Set urgency'
-                    : node.urgency === 'soon'
-                      ? 'Urgency: Soon'
-                      : 'Urgency: Today'}
-                </button>
+                />
+                {node.dueDate && (
+                  <button
+                    className="node-menu-item"
+                    onClick={() => {
+                      setTree((prev) =>
+                        upd(prev, node.id, (target) => {
+                          target.dueDate = undefined
+                        }),
+                      )
+                      setMenuOpen(false)
+                    }}
+                  >
+                    <X className="icon-xs" aria-hidden="true" />
+                    Clear due date
+                  </button>
+                )}
                 <button
                   className="node-menu-item"
                   onClick={() => {

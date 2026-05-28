@@ -1,6 +1,7 @@
 import type {
   Breadcrumb,
   DropPosition,
+  DueDateClass,
   HarvestPriority,
   HarvestSection,
   HarvestTreeNode,
@@ -125,11 +126,34 @@ export function getAllStarred(
   return result
 }
 
+export function classifyDueDate(dueDate: string): DueDateClass {
+  const today = new Date().toISOString().slice(0, 10)
+  if (dueDate < today) return 'overdue'
+  if (dueDate === today) return 'today'
+  return 'soon'
+}
+
+function dueDateRank(dueDate: string | undefined): number {
+  if (!dueDate) return 0
+  const cls = classifyDueDate(dueDate)
+  return cls === 'overdue' || cls === 'today' ? 2 : 1
+}
+
+function effectiveDueDate(
+  own: string | undefined,
+  inherited: string | undefined,
+): string | undefined {
+  if (!own) return inherited
+  if (!inherited) return own
+  return own < inherited ? own : inherited
+}
+
 function getNodeHarvestPriority(node: TreeNode): HarvestPriority | null {
   if (node.starred) return 'starred'
-  if (node.urgency === 'today' && !node.completed) return 'today'
-  if (node.urgency === 'soon' && !node.completed) return 'soon'
-  return null
+  if (!node.dueDate || node.completed) return null
+  const cls = classifyDueDate(node.dueDate)
+  if (cls === 'overdue' || cls === 'today') return 'today'
+  return 'soon'
 }
 
 function priorityRank(p: HarvestPriority | null): number {
@@ -235,38 +259,31 @@ function mulberry32(seed: number): () => number {
   }
 }
 
-function urgencyRank(urgency: TreeNode['urgency']): number {
-  if (urgency === 'today') return 2
-  if (urgency === 'soon') return 1
-  return 0
-}
-
-function effectiveUrgency(
-  own: TreeNode['urgency'],
-  inherited: TreeNode['urgency'],
-): TreeNode['urgency'] {
-  return urgencyRank(own) >= urgencyRank(inherited) ? own : inherited
-}
 
 function getSuggestionReason({
   node,
   remainingLeaves,
   totalLeaves,
   depth,
-  urgency,
+  dueDate,
 }: {
   node: TreeNode
   remainingLeaves: number
   totalLeaves: number
   depth: number
-  urgency: TreeNode['urgency']
+  dueDate: string | undefined
 }): string {
   const parts: string[] = []
 
-  if (urgency === 'today') {
-    parts.push('Today')
-  } else if (urgency === 'soon') {
-    parts.push('Soon')
+  if (dueDate) {
+    const cls = classifyDueDate(dueDate)
+    if (cls === 'overdue') {
+      parts.push('Overdue')
+    } else if (cls === 'today') {
+      parts.push('Today')
+    } else {
+      parts.push('Due soon')
+    }
   }
 
   if (node.starred) {
@@ -300,14 +317,14 @@ function scoreSuggestion({
   totalLeaves,
   doneLeaves,
   depth,
-  urgency,
+  dueDate,
 }: {
   node: TreeNode
   remainingLeaves: number
   totalLeaves: number
   doneLeaves: number
   depth: number
-  urgency: TreeNode['urgency']
+  dueDate: string | undefined
 }): number {
   if (remainingLeaves <= 0) {
     return 0
@@ -357,10 +374,8 @@ function scoreSuggestion({
     score -= 25
   }
 
-  if (urgency === 'today') {
-    score += 1000
-  } else if (urgency === 'soon') {
-    score += 500
+  if (dueDate) {
+    score += dueDateRank(dueDate) === 2 ? 1000 : 500
   }
 
   return score
@@ -377,12 +392,12 @@ export function getNextActionSuggestions(
     node: TreeNode,
     breadcrumbPath: Breadcrumb[],
     depth: number,
-    inheritedUrgency?: TreeNode['urgency'],
+    inheritedDueDate?: string,
   ): { doneLeaves: number; totalLeaves: number } => {
     let doneLeaves = 0
     let totalLeaves = 0
     const nextPath = [...breadcrumbPath, { id: node.id, text: node.text }]
-    const nodeUrgency = effectiveUrgency(node.urgency, inheritedUrgency)
+    const nodeDueDate = effectiveDueDate(node.dueDate, inheritedDueDate)
 
     if (!node.children.length) {
       if (node.kind !== 'folder') {
@@ -391,7 +406,7 @@ export function getNextActionSuggestions(
       }
     } else {
       for (const child of node.children) {
-        const childMetrics = visitNode(child, nextPath, depth + 1, nodeUrgency)
+        const childMetrics = visitNode(child, nextPath, depth + 1, nodeDueDate)
         doneLeaves += childMetrics.doneLeaves
         totalLeaves += childMetrics.totalLeaves
       }
@@ -411,7 +426,7 @@ export function getNextActionSuggestions(
         totalLeaves,
         doneLeaves,
         depth,
-        urgency: nodeUrgency,
+        dueDate: nodeDueDate,
       })
 
       if (score > 0) {
@@ -424,7 +439,7 @@ export function getNextActionSuggestions(
             remainingLeaves,
             totalLeaves,
             depth,
-            urgency: nodeUrgency,
+            dueDate: nodeDueDate,
           }),
         })
       }

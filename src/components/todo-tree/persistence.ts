@@ -20,14 +20,28 @@ export type SyncablePersistedState = Pick<
   'tree' | 'zoom' | 'view' | 'suggestionHides'
 >
 
+function migratedDueDate(node: TreeNode & { urgency?: string }): string | undefined {
+  if (node.dueDate) return node.dueDate
+  if (node.urgency === 'today') {
+    return new Date().toISOString().slice(0, 10)
+  }
+  if (node.urgency === 'soon') {
+    const d = new Date()
+    d.setDate(d.getDate() + 3)
+    return d.toISOString().slice(0, 10)
+  }
+  return undefined
+}
+
 function normalizeTree(nodes: TreeNode[]): TreeNode[] {
   return nodes.map((node) => {
     const kind = node.kind === 'folder' ? 'folder' : 'task'
     const children = Array.isArray(node.children)
       ? normalizeTree(node.children)
       : []
+    const dueDate = migratedDueDate(node as TreeNode & { urgency?: string })
 
-    return {
+    const normalized: TreeNode = {
       ...node,
       kind,
       children,
@@ -35,6 +49,10 @@ function normalizeTree(nodes: TreeNode[]): TreeNode[] {
       collapsed: Boolean(node.collapsed),
       starred: Boolean(node.starred),
     }
+    if (dueDate) normalized.dueDate = dueDate
+    else delete normalized.dueDate
+    delete (normalized as Record<string, unknown>)['urgency']
+    return normalized
   })
 }
 
