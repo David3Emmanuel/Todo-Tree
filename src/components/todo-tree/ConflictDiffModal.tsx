@@ -9,6 +9,7 @@ import {
   type DiffedNode,
   type DiffSummary,
 } from './treeDiff'
+import { classifyDueDate, formatDueDate } from './tree-utils'
 import type { TreeNode } from './types'
 
 function formatTimeAgo(ms: number | undefined): string {
@@ -49,6 +50,11 @@ function DiffNodeRow({ dn, depth = 0 }: { dn: DiffedNode; depth?: number }) {
           )}
         </span>
         <span className="diff-node-text">{node.text || '(untitled)'}</span>
+        {node.dueDate && (
+          <span className={`due-badge due-badge--${classifyDueDate(node.dueDate)}`}>
+            {formatDueDate(node.dueDate)}
+          </span>
+        )}
         {status !== 'unchanged' && (
           <span className={`diff-badge diff-badge-${status}`}>
             {status === 'added' ? 'new here' : 'changed'}
