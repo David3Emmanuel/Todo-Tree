@@ -17,7 +17,7 @@ export type RemotePersistedState = {
 
 export type SyncablePersistedState = Pick<
   PersistedState,
-  'tree' | 'zoom' | 'view' | 'suggestionHides'
+  'tree' | 'suggestionHides'
 >
 
 function migratedDueDate(node: TreeNode & { urgency?: string }): string | undefined {
@@ -141,8 +141,6 @@ function normalizeSyncablePersistedState(
 ): SyncablePersistedState {
   return {
     tree: normalizeTree(value.tree),
-    zoom: Array.isArray(value.zoom) ? value.zoom : [],
-    view: value.view === 'harvest' ? 'harvest' : 'tree',
     suggestionHides: normalizeSuggestionHides(value.suggestionHides),
   }
 }
@@ -323,6 +321,7 @@ export async function fetchRemotePersistedState(
 export async function saveRemotePersistedState(
   jwt: string,
   state: SyncablePersistedState,
+  lastSyncedUpdatedAtMs?: number,
 ): Promise<RemotePersistedState | null> {
   const normalizedState = normalizeSyncablePersistedState(state)
 
@@ -335,12 +334,17 @@ export async function saveRemotePersistedState(
     body: JSON.stringify({
       data: {
         content: normalizedState,
+        lastSyncedUpdatedAtMs,
       },
     }),
   })
 
   if (response.status === 401 || response.status === 403) {
     return null
+  }
+
+  if (response.status === 409) {
+    throw new Error('Conflict')
   }
 
   const payload = await parseJsonResponse(response)

@@ -96,8 +96,11 @@ function hasAnyPersistedContent(state: PersistedState): boolean {
   )
 }
 
-function buildStateFingerprint(state: { tree: TreeNode[] }): string {
-  return JSON.stringify({ tree: state.tree })
+function buildStateFingerprint(state: { tree: TreeNode[]; suggestionHides: SuggestionHideMap }): string {
+  return JSON.stringify({
+    tree: state.tree,
+    suggestionHides: state.suggestionHides,
+  })
 }
 
 function classifyLoginReconcileState(
@@ -182,6 +185,13 @@ export function usePersistence(
   const loginLocalSnapshotRef = useRef<PersistedState | null>(null)
   const loginReconcileClassificationRef =
     useRef<LoginReconcileClassification | null>(null)
+  const isSyncingRef = useRef(false)
+  const hasPendingSyncRef = useRef(false)
+  const latestSyncStateRef = useRef({ tree, activeSuggestionHides })
+
+  useEffect(() => {
+    latestSyncStateRef.current = { tree, activeSuggestionHides }
+  }, [tree, activeSuggestionHides])
 
   useEffect(() => {
     let isCancelled = false
@@ -204,8 +214,6 @@ export function usePersistence(
         persisted.lastSyncedFingerprint ??
         JSON.stringify({
           tree: persisted.tree,
-          zoom: persisted.zoom,
-          view: persisted.view,
           suggestionHides: persisted.suggestionHides,
         })
       setIsReady(true)
@@ -353,8 +361,6 @@ export function usePersistence(
         if (classification === 'remote-empty_local-nonempty') {
           const localSyncState = {
             tree: local.tree,
-            zoom: local.zoom,
-            view: local.view,
             suggestionHides: local.suggestionHides,
           }
 
@@ -471,15 +477,13 @@ export function usePersistence(
       if (resolution === 'keep-local') {
         const localSyncState = {
           tree,
-          zoom,
-          view,
           suggestionHides: activeSuggestionHides,
         }
 
         const localFingerprint = buildStateFingerprint(localSyncState)
         const remoteSaveResult =
           isAuthenticated && jwt
-            ? await saveRemotePersistedState(jwt, localSyncState)
+            ? await saveRemotePersistedState(jwt, localSyncState, serverUpdatedAtMs)
             : null
 
         if (remoteSaveResult?.serverUpdatedAtMs) {
@@ -559,37 +563,78 @@ export function usePersistence(
       return
     }
 
-    const syncState = {
+    const fingerprint = JSON.stringify({
       tree,
-      zoom,
-      view,
       suggestionHides: activeSuggestionHides,
-    }
-    const fingerprint = JSON.stringify(syncState)
+    })
     if (fingerprint === lastSyncedFingerprintRef.current) {
       return
     }
 
-    const timeoutId = window.setTimeout(() => {
-      void (async () => {
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          return
-        }
-        try {
-          const remote = await saveRemotePersistedState(jwt, syncState)
-          if (!remote) {
-            return
-          }
+    const performSync = async () => {
+      if (isSyncingRef.current) {
+        hasPendingSyncRef.current = true
+        return
+      }
 
-          lastSyncedFingerprintRef.current = fingerprint
+      isSyncingRef.current = true
+      hasPendingSyncRef.current = false
+
+      const currentSyncState = {
+        tree: latestSyncStateRef.current.tree,
+        suggestionHides: latestSyncStateRef.current.activeSuggestionHides,
+      }
+      const currentFingerprint = JSON.stringify(currentSyncState)
+
+      if (currentFingerprint === lastSyncedFingerprintRef.current) {
+        isSyncingRef.current = false
+        return
+      }
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        isSyncingRef.current = false
+        return
+      }
+
+      try {
+        const remote = await saveRemotePersistedState(jwt, currentSyncState, serverUpdatedAtMs)
+        if (remote) {
+          lastSyncedFingerprintRef.current = currentFingerprint
           if (remote.serverUpdatedAtMs > 0) {
             setServerUpdatedAtMs(remote.serverUpdatedAtMs)
           }
-        } catch {
-          // Keep working locally; sync retries on next state change.
         }
-      })()
-    }, REMOTE_SYNC_DEBOUNCE_MS)
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Conflict') {
+          try {
+            const remote = await fetchRemotePersistedState(jwt)
+            if (remote) {
+              setLoginReconcileConflict({
+                localState: {
+                  tree: latestSyncStateRef.current.tree,
+                  zoom,
+                  view,
+                  suggestionHides: latestSyncStateRef.current.activeSuggestionHides,
+                  localUpdatedAtMs: Date.now(),
+                  lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
+                  serverUpdatedAtMs,
+                },
+                remoteState: remote.state,
+              })
+            }
+          } catch {
+            // Ignore fetch failure
+          }
+        }
+      } finally {
+        isSyncingRef.current = false
+        if (hasPendingSyncRef.current) {
+          performSync()
+        }
+      }
+    }
+
+    const timeoutId = window.setTimeout(performSync, REMOTE_SYNC_DEBOUNCE_MS)
 
     return () => window.clearTimeout(timeoutId)
   }, [
@@ -597,13 +642,32 @@ export function usePersistence(
     isReady,
     jwt,
     tree,
-    zoom,
-    view,
     activeSuggestionHides,
     isLoginReconciling,
     hasPendingLoginRemoteSnapshot,
     loginReconcileConflict,
+    serverUpdatedAtMs,
+    zoom,
+    view,
   ])
+
+  useEffect(() => {
+    if (!isAuthenticated || !jwt || !isReady) return
+
+    const handleOnline = () => {
+      const currentSyncState = {
+        tree,
+        suggestionHides: activeSuggestionHides,
+      }
+      const currentFingerprint = JSON.stringify(currentSyncState)
+      if (currentFingerprint !== lastSyncedFingerprintRef.current) {
+        triggerManualSync()
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    return () => window.removeEventListener('online', handleOnline)
+  }, [isAuthenticated, jwt, isReady, tree, activeSuggestionHides, triggerManualSync])
 
   useEffect(() => {
     const activeExpiryTimes = Object.values(activeSuggestionHides)
@@ -632,11 +696,11 @@ export function usePersistence(
       window.clearTimeout(syncStatusResetRef.current)
     }
 
-    const syncState = { tree, zoom, view, suggestionHides: activeSuggestionHides }
+    const syncState = { tree, suggestionHides: activeSuggestionHides }
 
     void (async () => {
       try {
-        const remote = await saveRemotePersistedState(jwt, syncState)
+        const remote = await saveRemotePersistedState(jwt, syncState, serverUpdatedAtMs)
         if (remote) {
           lastSyncedFingerprintRef.current = JSON.stringify(syncState)
           if (remote.serverUpdatedAtMs > 0) {
@@ -644,7 +708,28 @@ export function usePersistence(
           }
         }
         setSyncStatus('success')
-      } catch {
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Conflict') {
+          try {
+            const remote = await fetchRemotePersistedState(jwt)
+            if (remote) {
+              setLoginReconcileConflict({
+                localState: {
+                  tree,
+                  zoom,
+                  view,
+                  suggestionHides: activeSuggestionHides,
+                  localUpdatedAtMs: Date.now(),
+                  lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
+                  serverUpdatedAtMs,
+                },
+                remoteState: remote.state,
+              })
+            }
+          } catch {
+            // Ignore fetch failure
+          }
+        }
         setSyncStatus('error')
       } finally {
         syncStatusResetRef.current = window.setTimeout(
@@ -653,7 +738,7 @@ export function usePersistence(
         )
       }
     })()
-  }, [isAuthenticated, jwt, syncStatus, tree, zoom, view, activeSuggestionHides])
+  }, [isAuthenticated, jwt, syncStatus, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
 
   return {
     isReady,
