@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type Dispatch,
@@ -28,12 +29,17 @@ export function HarvestFocusModal({
   const [stickyOffset, setStickyOffset] = useState({ x: 0, y: 0 })
   const [isStickyDragging, setIsStickyDragging] = useState(false)
   const noteInputRef = useRef<HTMLTextAreaElement | null>(null)
+  const stageRef = useRef<HTMLDivElement | null>(null)
   const stickyDragRef = useRef<{
     pointerId: number
     startX: number
     startY: number
     originX: number
     originY: number
+    elementWidth: number
+    elementHeight: number
+    startLeft: number
+    startTop: number
   } | null>(null)
   const stickyDraggedRef = useRef(false)
 
@@ -43,6 +49,41 @@ export function HarvestFocusModal({
     setStickyOffset({ x: 0, y: 0 })
     setIsStickyDragging(false)
   }, [focusRoot.id, focusRoot.note])
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current
+    if (!stage) return
+
+    const clamp = () => {
+      const rect = stage.getBoundingClientRect()
+      const padding = 8
+      let dx = 0
+      let dy = 0
+
+      if (rect.left < padding) {
+        dx = padding - rect.left
+      } else if (rect.right > window.innerWidth - padding) {
+        dx = window.innerWidth - padding - rect.right
+      }
+
+      if (rect.top < padding) {
+        dy = padding - rect.top
+      } else if (rect.bottom > window.innerHeight - padding) {
+        dy = window.innerHeight - padding - rect.bottom
+      }
+
+      if (dx !== 0 || dy !== 0) {
+        setStickyOffset((prev) => ({
+          x: prev.x + dx,
+          y: prev.y + dy,
+        }))
+      }
+    }
+
+    clamp()
+    window.addEventListener('resize', clamp)
+    return () => window.removeEventListener('resize', clamp)
+  }, [isNoteOpen])
 
   useEffect(() => {
     if (!isNoteOpen) {
@@ -79,9 +120,25 @@ export function HarvestFocusModal({
         setIsStickyDragging(true)
       }
 
+      const tentativeLeft = drag.startLeft + dx
+      const tentativeTop = drag.startTop + dy
+      const padding = 8
+
+      const clampedLeft = Math.max(
+        padding,
+        Math.min(tentativeLeft, window.innerWidth - drag.elementWidth - padding),
+      )
+      const clampedTop = Math.max(
+        padding,
+        Math.min(tentativeTop, window.innerHeight - drag.elementHeight - padding),
+      )
+
+      const diffX = clampedLeft - drag.startLeft
+      const diffY = clampedTop - drag.startTop
+
       setStickyOffset({
-        x: drag.originX + dx,
-        y: drag.originY + dy,
+        x: drag.originX + diffX,
+        y: drag.originY + diffY,
       })
     }
 
@@ -140,6 +197,7 @@ export function HarvestFocusModal({
           </button>
         </div>
         <div
+          ref={stageRef}
           className={`focus-note-stage${isNoteOpen ? ' open' : ' closed'}`}
           aria-label="Sticky note"
           style={{
@@ -169,12 +227,19 @@ export function HarvestFocusModal({
               className="focus-note-toggle"
               type="button"
               onPointerDown={(event) => {
+                const stage = stageRef.current
+                if (!stage) return
+                const rect = stage.getBoundingClientRect()
                 stickyDragRef.current = {
                   pointerId: event.pointerId,
                   startX: event.clientX,
                   startY: event.clientY,
                   originX: stickyOffset.x,
                   originY: stickyOffset.y,
+                  elementWidth: rect.width,
+                  elementHeight: rect.height,
+                  startLeft: rect.left,
+                  startTop: rect.top,
                 }
                 stickyDraggedRef.current = false
                 event.currentTarget.setPointerCapture(event.pointerId)

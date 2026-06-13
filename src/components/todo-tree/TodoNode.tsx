@@ -106,12 +106,38 @@ export function TodoNode({
       setMenuStyle({ zIndex: 9999 })
     } else {
       const rect = moreRef.current.getBoundingClientRect()
-      setMenuStyle({
-        position: 'fixed',
-        top: `${rect.bottom + 4}px`,
-        right: `${window.innerWidth - rect.right}px`,
-        zIndex: 9999,
-      })
+      const MENU_WIDTH = 240
+      const idealLeft = rect.right - MENU_WIDTH
+      const left = Math.max(
+        8,
+        Math.min(idealLeft, window.innerWidth - MENU_WIDTH - 8),
+      )
+
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const placeBelow = spaceBelow >= spaceAbove || spaceBelow >= 350
+
+      if (placeBelow) {
+        setMenuStyle({
+          position: 'fixed',
+          left: `${left}px`,
+          top: `${rect.bottom + 4}px`,
+          maxHeight: `${spaceBelow - 14}px`,
+          overflowY: 'auto',
+          width: `${MENU_WIDTH}px`,
+          zIndex: 9999,
+        })
+      } else {
+        setMenuStyle({
+          position: 'fixed',
+          left: `${left}px`,
+          bottom: `${window.innerHeight - rect.top + 4}px`,
+          maxHeight: `${spaceAbove - 14}px`,
+          overflowY: 'auto',
+          width: `${MENU_WIDTH}px`,
+          zIndex: 9999,
+        })
+      }
     }
     setMenuOpen(true)
   }

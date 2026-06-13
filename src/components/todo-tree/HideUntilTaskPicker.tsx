@@ -90,13 +90,37 @@ export function HideUntilTaskPicker({
       }
 
       const rect = field.getBoundingClientRect()
-      setPanelStyle({
-        position: 'fixed',
-        left: `${rect.left}px`,
-        top: `${rect.bottom + 6}px`,
-        width: `${rect.width}px`,
-        zIndex: 99999,
-      })
+      const idealLeft = rect.left
+      const left = Math.max(
+        8,
+        Math.min(idealLeft, window.innerWidth - rect.width - 8),
+      )
+
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const placeBelow = spaceBelow >= spaceAbove || spaceBelow >= 250
+
+      if (placeBelow) {
+        setPanelStyle({
+          position: 'fixed',
+          left: `${left}px`,
+          top: `${rect.bottom + 6}px`,
+          maxHeight: `${spaceBelow - 14}px`,
+          overflowY: 'auto',
+          width: `${rect.width}px`,
+          zIndex: 99999,
+        })
+      } else {
+        setPanelStyle({
+          position: 'fixed',
+          left: `${left}px`,
+          bottom: `${window.innerHeight - rect.top + 6}px`,
+          maxHeight: `${spaceAbove - 14}px`,
+          overflowY: 'auto',
+          width: `${rect.width}px`,
+          zIndex: 99999,
+        })
+      }
     }
 
     updatePanelStyle()

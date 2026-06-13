@@ -231,13 +231,31 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
           Math.min(idealLeft, window.innerWidth - menuWidth - 8),
         )
 
-        setHideMenuPosition({
-          position: 'fixed',
-          left: `${menuLeft}px`,
-          top: `${rect.bottom + 6}px`,
-          width: `${menuWidth}px`,
-          zIndex: 99999,
-        })
+        const spaceBelow = window.innerHeight - rect.bottom
+        const spaceAbove = rect.top
+        const placeBelow = spaceBelow >= spaceAbove || spaceBelow >= 350
+
+        if (placeBelow) {
+          setHideMenuPosition({
+            position: 'fixed',
+            left: `${menuLeft}px`,
+            top: `${rect.bottom + 6}px`,
+            maxHeight: `${spaceBelow - 14}px`,
+            overflowY: 'auto',
+            width: `${menuWidth}px`,
+            zIndex: 99999,
+          })
+        } else {
+          setHideMenuPosition({
+            position: 'fixed',
+            left: `${menuLeft}px`,
+            bottom: `${window.innerHeight - rect.top + 6}px`,
+            maxHeight: `${spaceAbove - 14}px`,
+            overflowY: 'auto',
+            width: `${menuWidth}px`,
+            zIndex: 99999,
+          })
+        }
         return
       }
 
@@ -263,13 +281,31 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
         Math.min(idealLeft, window.innerWidth - menuWidth - 8),
       )
 
-      setHideMenuPosition({
-        position: 'fixed',
-        left: `${menuLeft}px`,
-        top: `${rect.bottom + 6}px`,
-        width: `${menuWidth}px`,
-        zIndex: 99999,
-      })
+      const spaceBelow = window.innerHeight - rect.bottom
+      const spaceAbove = rect.top
+      const placeBelow = spaceBelow >= spaceAbove || spaceBelow >= 350
+
+      if (placeBelow) {
+        setHideMenuPosition({
+          position: 'fixed',
+          left: `${menuLeft}px`,
+          top: `${rect.bottom + 6}px`,
+          maxHeight: `${spaceBelow - 14}px`,
+          overflowY: 'auto',
+          width: `${menuWidth}px`,
+          zIndex: 99999,
+        })
+      } else {
+        setHideMenuPosition({
+          position: 'fixed',
+          left: `${menuLeft}px`,
+          bottom: `${window.innerHeight - rect.top + 6}px`,
+          maxHeight: `${spaceAbove - 14}px`,
+          overflowY: 'auto',
+          width: `${menuWidth}px`,
+          zIndex: 99999,
+        })
+      }
     }
 
     updateMenuPosition()
