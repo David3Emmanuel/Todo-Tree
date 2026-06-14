@@ -230,6 +230,58 @@ export function usePersistence(
     latestSyncStateRef.current = { tree, activeSuggestionHides }
   }, [tree, activeSuggestionHides])
 
+  const triggerManualSync = useCallback(() => {
+    if (!isAuthenticated || !jwt || syncStatus === 'syncing') return
+
+    setSyncStatus('syncing')
+    if (syncStatusResetRef.current !== null) {
+      window.clearTimeout(syncStatusResetRef.current)
+    }
+
+    const syncState = { tree, suggestionHides: activeSuggestionHides }
+
+    void (async () => {
+      try {
+        const remote = await saveRemotePersistedState(jwt, syncState, serverUpdatedAtMs)
+        if (remote) {
+          lastSyncedFingerprintRef.current = JSON.stringify(syncState)
+          if (remote.serverUpdatedAtMs > 0) {
+            setServerUpdatedAtMs(remote.serverUpdatedAtMs)
+          }
+        }
+        setSyncStatus('success')
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Conflict') {
+          try {
+            const remote = await fetchRemotePersistedState(jwt)
+            if (remote) {
+              setLoginReconcileConflict({
+                localState: {
+                  tree,
+                  zoom,
+                  view,
+                  suggestionHides: activeSuggestionHides,
+                  localUpdatedAtMs: Date.now(),
+                  lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
+                  serverUpdatedAtMs,
+                },
+                remoteState: remote.state,
+              })
+            }
+          } catch {
+            // Ignore fetch failure
+          }
+        }
+        setSyncStatus('error')
+      } finally {
+        syncStatusResetRef.current = window.setTimeout(
+          () => setSyncStatus('idle'),
+          2500,
+        )
+      }
+    })()
+  }, [isAuthenticated, jwt, syncStatus, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
+
   useEffect(() => {
     if (!isAuthenticated || !isReady || !jwt) {
       if (!isAuthenticated) {
@@ -689,57 +741,7 @@ export function usePersistence(
     return () => window.clearTimeout(timeoutId)
   }, [activeSuggestionHides])
 
-  const triggerManualSync = useCallback(() => {
-    if (!isAuthenticated || !jwt || syncStatus === 'syncing') return
 
-    setSyncStatus('syncing')
-    if (syncStatusResetRef.current !== null) {
-      window.clearTimeout(syncStatusResetRef.current)
-    }
-
-    const syncState = { tree, suggestionHides: activeSuggestionHides }
-
-    void (async () => {
-      try {
-        const remote = await saveRemotePersistedState(jwt, syncState, serverUpdatedAtMs)
-        if (remote) {
-          lastSyncedFingerprintRef.current = JSON.stringify(syncState)
-          if (remote.serverUpdatedAtMs > 0) {
-            setServerUpdatedAtMs(remote.serverUpdatedAtMs)
-          }
-        }
-        setSyncStatus('success')
-      } catch (err) {
-        if (err instanceof Error && err.message === 'Conflict') {
-          try {
-            const remote = await fetchRemotePersistedState(jwt)
-            if (remote) {
-              setLoginReconcileConflict({
-                localState: {
-                  tree,
-                  zoom,
-                  view,
-                  suggestionHides: activeSuggestionHides,
-                  localUpdatedAtMs: Date.now(),
-                  lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
-                  serverUpdatedAtMs,
-                },
-                remoteState: remote.state,
-              })
-            }
-          } catch {
-            // Ignore fetch failure
-          }
-        }
-        setSyncStatus('error')
-      } finally {
-        syncStatusResetRef.current = window.setTimeout(
-          () => setSyncStatus('idle'),
-          2500,
-        )
-      }
-    })()
-  }, [isAuthenticated, jwt, syncStatus, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
 
   return {
     isReady,
