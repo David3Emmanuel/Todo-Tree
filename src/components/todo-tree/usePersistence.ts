@@ -187,11 +187,6 @@ export function usePersistence(
     useRef<LoginReconcileClassification | null>(null)
   const isSyncingRef = useRef(false)
   const hasPendingSyncRef = useRef(false)
-  const latestSyncStateRef = useRef({ tree, activeSuggestionHides })
-
-  useEffect(() => {
-    latestSyncStateRef.current = { tree, activeSuggestionHides }
-  }, [tree, activeSuggestionHides])
 
   useEffect(() => {
     let isCancelled = false
@@ -228,6 +223,12 @@ export function usePersistence(
     () => pruneSuggestionHides(suggestionHides, tree, suggestionTick),
     [suggestionHides, tree, suggestionTick],
   )
+
+  const latestSyncStateRef = useRef({ tree, activeSuggestionHides })
+
+  useEffect(() => {
+    latestSyncStateRef.current = { tree, activeSuggestionHides }
+  }, [tree, activeSuggestionHides])
 
   useEffect(() => {
     if (!isAuthenticated || !isReady || !jwt) {
