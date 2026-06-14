@@ -230,6 +230,161 @@ export function usePersistence(
     latestSyncStateRef.current = { tree, activeSuggestionHides }
   }, [tree, activeSuggestionHides])
 
+  const performSync = useCallback(
+    async (currentSyncState: {
+      tree: TreeNode[]
+      suggestionHides: SuggestionHideMap
+    }) => {
+      if (isSyncingRef.current) {
+        hasPendingSyncRef.current = true
+        return
+      }
+
+      isSyncingRef.current = true
+      hasPendingSyncRef.current = false
+
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        isSyncingRef.current = false
+        return
+      }
+
+      try {
+        const remote = await fetchRemotePersistedState(jwt!)
+        const currentFingerprint = JSON.stringify(currentSyncState)
+        const localState: PersistedState = {
+          ...currentSyncState,
+          zoom,
+          view,
+          localUpdatedAtMs: Date.now(),
+          lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
+          serverUpdatedAtMs,
+        }
+
+        if (!remote) {
+          const remoteSaveResult = await saveRemotePersistedState(
+            jwt!,
+            currentSyncState,
+          )
+          if (remoteSaveResult) {
+            lastSyncedFingerprintRef.current = currentFingerprint
+            setServerUpdatedAtMs(remoteSaveResult.serverUpdatedAtMs)
+          }
+          return
+        }
+
+        const classification = classifyLoginReconcileState(
+          localState,
+          remote.state,
+        )
+
+        if (
+          classification === 'local-empty_remote-nonempty' ||
+          classification === 'local-clean_remote-diverged'
+        ) {
+          const remoteFingerprint = buildStateFingerprint(remote.state)
+          lastSyncedFingerprintRef.current = remoteFingerprint
+          setTree(remote.state.tree)
+          setSuggestionHides(remote.state.suggestionHides)
+          setServerUpdatedAtMs(remote.serverUpdatedAtMs)
+
+          await savePersistedState({
+            ...remote.state,
+            localUpdatedAtMs: Date.now(),
+            lastSyncedFingerprint: remoteFingerprint,
+            serverUpdatedAtMs: remote.serverUpdatedAtMs,
+          })
+          return
+        }
+
+        if (classification === 'remote-empty_local-nonempty') {
+          const remoteSaveResult = await saveRemotePersistedState(
+            jwt!,
+            currentSyncState,
+            serverUpdatedAtMs,
+          )
+          if (remoteSaveResult) {
+            lastSyncedFingerprintRef.current = currentFingerprint
+            setServerUpdatedAtMs(remoteSaveResult.serverUpdatedAtMs)
+          }
+          return
+        }
+
+        if (classification === 'no-divergence') {
+          lastSyncedFingerprintRef.current = currentFingerprint
+          if (remote.serverUpdatedAtMs > 0) {
+            setServerUpdatedAtMs(remote.serverUpdatedAtMs)
+          }
+          return
+        }
+
+        const remoteChangedSinceLastSync =
+          remote.serverUpdatedAtMs &&
+          serverUpdatedAtMs &&
+          remote.serverUpdatedAtMs > serverUpdatedAtMs
+
+        if (!remoteChangedSinceLastSync) {
+          const remoteSaveResult = await saveRemotePersistedState(
+            jwt!,
+            currentSyncState,
+            serverUpdatedAtMs,
+          )
+          if (remoteSaveResult) {
+            lastSyncedFingerprintRef.current = currentFingerprint
+            setServerUpdatedAtMs(remoteSaveResult.serverUpdatedAtMs)
+          }
+          return
+        }
+
+        setLoginReconcileConflict({
+          localState,
+          remoteState: remote.state,
+        })
+      } catch (err) {
+        if (err instanceof Error && err.message === 'Conflict') {
+          try {
+            const remote = await fetchRemotePersistedState(jwt!)
+            if (remote) {
+              setLoginReconcileConflict({
+                localState: {
+                  ...currentSyncState,
+                  zoom,
+                  view,
+                  localUpdatedAtMs: Date.now(),
+                  lastSyncedFingerprint:
+                    lastSyncedFingerprintRef.current || undefined,
+                  serverUpdatedAtMs,
+                },
+                remoteState: remote.state,
+              })
+            }
+          } catch {
+            // Ignore
+          }
+        }
+        throw err
+      } finally {
+        isSyncingRef.current = false
+        if (hasPendingSyncRef.current) {
+          const nextSyncState = {
+            tree: latestSyncStateRef.current.tree,
+            suggestionHides: latestSyncStateRef.current.activeSuggestionHides,
+          }
+          void performSync(nextSyncState)
+        }
+      }
+    },
+    [
+      jwt,
+      zoom,
+      view,
+      serverUpdatedAtMs,
+      setTree,
+      setSuggestionHides,
+      setServerUpdatedAtMs,
+      setLoginReconcileConflict,
+    ],
+  )
+
   const triggerManualSync = useCallback(() => {
     if (!isAuthenticated || !jwt || syncStatus === 'syncing') return
 
@@ -242,36 +397,9 @@ export function usePersistence(
 
     void (async () => {
       try {
-        const remote = await saveRemotePersistedState(jwt, syncState, serverUpdatedAtMs)
-        if (remote) {
-          lastSyncedFingerprintRef.current = JSON.stringify(syncState)
-          if (remote.serverUpdatedAtMs > 0) {
-            setServerUpdatedAtMs(remote.serverUpdatedAtMs)
-          }
-        }
+        await performSync(syncState)
         setSyncStatus('success')
-      } catch (err) {
-        if (err instanceof Error && err.message === 'Conflict') {
-          try {
-            const remote = await fetchRemotePersistedState(jwt)
-            if (remote) {
-              setLoginReconcileConflict({
-                localState: {
-                  tree,
-                  zoom,
-                  view,
-                  suggestionHides: activeSuggestionHides,
-                  localUpdatedAtMs: Date.now(),
-                  lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
-                  serverUpdatedAtMs,
-                },
-                remoteState: remote.state,
-              })
-            }
-          } catch {
-            // Ignore fetch failure
-          }
-        }
+      } catch {
         setSyncStatus('error')
       } finally {
         syncStatusResetRef.current = window.setTimeout(
@@ -280,7 +408,7 @@ export function usePersistence(
         )
       }
     })()
-  }, [isAuthenticated, jwt, syncStatus, tree, zoom, view, activeSuggestionHides, serverUpdatedAtMs])
+  }, [isAuthenticated, jwt, syncStatus, tree, activeSuggestionHides, performSync])
 
   useEffect(() => {
     if (!isAuthenticated || !isReady || !jwt) {
@@ -624,70 +752,17 @@ export function usePersistence(
       return
     }
 
-    const performSync = async () => {
-      if (isSyncingRef.current) {
-        hasPendingSyncRef.current = true
-        return
-      }
-
-      isSyncingRef.current = true
-      hasPendingSyncRef.current = false
-
+    const performSyncWrapper = () => {
       const currentSyncState = {
         tree: latestSyncStateRef.current.tree,
         suggestionHides: latestSyncStateRef.current.activeSuggestionHides,
       }
-      const currentFingerprint = JSON.stringify(currentSyncState)
-
-      if (currentFingerprint === lastSyncedFingerprintRef.current) {
-        isSyncingRef.current = false
-        return
-      }
-
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
-        isSyncingRef.current = false
-        return
-      }
-
-      try {
-        const remote = await saveRemotePersistedState(jwt, currentSyncState, serverUpdatedAtMs)
-        if (remote) {
-          lastSyncedFingerprintRef.current = currentFingerprint
-          if (remote.serverUpdatedAtMs > 0) {
-            setServerUpdatedAtMs(remote.serverUpdatedAtMs)
-          }
-        }
-      } catch (err) {
-        if (err instanceof Error && err.message === 'Conflict') {
-          try {
-            const remote = await fetchRemotePersistedState(jwt)
-            if (remote) {
-              setLoginReconcileConflict({
-                localState: {
-                  tree: latestSyncStateRef.current.tree,
-                  zoom,
-                  view,
-                  suggestionHides: latestSyncStateRef.current.activeSuggestionHides,
-                  localUpdatedAtMs: Date.now(),
-                  lastSyncedFingerprint: lastSyncedFingerprintRef.current || undefined,
-                  serverUpdatedAtMs,
-                },
-                remoteState: remote.state,
-              })
-            }
-          } catch {
-            // Ignore fetch failure
-          }
-        }
-      } finally {
-        isSyncingRef.current = false
-        if (hasPendingSyncRef.current) {
-          performSync()
-        }
-      }
+      void performSync(currentSyncState).catch(() => {
+        // Silently ignore background sync failures
+      })
     }
 
-    const timeoutId = window.setTimeout(performSync, REMOTE_SYNC_DEBOUNCE_MS)
+    const timeoutId = window.setTimeout(performSyncWrapper, REMOTE_SYNC_DEBOUNCE_MS)
 
     return () => window.clearTimeout(timeoutId)
   }, [
@@ -699,9 +774,7 @@ export function usePersistence(
     isLoginReconciling,
     hasPendingLoginRemoteSnapshot,
     loginReconcileConflict,
-    serverUpdatedAtMs,
-    zoom,
-    view,
+    performSync,
   ])
 
   useEffect(() => {
