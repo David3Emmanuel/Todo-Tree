@@ -664,7 +664,11 @@ export function usePersistence(
         const localFingerprint = buildStateFingerprint(localSyncState)
         const remoteSaveResult =
           isAuthenticated && jwt
-            ? await saveRemotePersistedState(jwt, localSyncState, serverUpdatedAtMs)
+            ? await saveRemotePersistedState(
+                jwt,
+                localSyncState,
+                loginReconcileConflict.remoteState.serverUpdatedAtMs,
+              )
             : null
 
         if (remoteSaveResult?.serverUpdatedAtMs) {
