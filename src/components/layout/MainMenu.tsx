@@ -97,17 +97,37 @@ export function MainMenu({ open, onClose, children, history, syncStatus, onSync 
                   </button>
                 </div>
                 {onSync && (
-                  <button
-                    className={`menu-sync-btn${syncStatus === 'success' ? ' menu-sync-btn--success' : syncStatus === 'error' ? ' menu-sync-btn--error' : ''}`}
-                    onClick={onSync}
-                    disabled={syncStatus === 'syncing'}
-                  >
-                    <RefreshCw className={`icon-sm${syncStatus === 'syncing' ? ' menu-sync-spin' : ''}`} aria-hidden="true" />
-                    {syncStatus === 'syncing' ? 'Syncing…'
-                      : syncStatus === 'success' ? 'Synced'
-                      : syncStatus === 'error' ? 'Sync failed'
-                      : 'Sync now'}
-                  </button>
+                  <>
+                    <button
+                      className={`menu-sync-btn${syncStatus === 'success' ? ' menu-sync-btn--success' : syncStatus === 'error' ? ' menu-sync-btn--error' : ''}`}
+                      onClick={onSync}
+                      disabled={syncStatus === 'syncing'}
+                    >
+                      <RefreshCw className={`icon-sm${syncStatus === 'syncing' ? ' menu-sync-spin' : ''}`} aria-hidden="true" />
+                      {syncStatus === 'syncing' ? 'Syncing…'
+                        : syncStatus === 'success' ? 'Synced'
+                        : syncStatus === 'error' ? 'Sync failed'
+                        : 'Sync now'}
+                    </button>
+                    <a
+                      className="menu-sync-btn"
+                      href={import.meta.env.VITE_MCP_SERVER_URL ?? 'http://localhost:3001'}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        marginTop: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        lineHeight: '1.5'
+                      }}
+                    >
+                      Connect AI Agent (MCP)
+                    </a>
+                  </>
                 )}
               </>
             ) : (
