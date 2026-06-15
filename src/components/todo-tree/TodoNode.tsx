@@ -629,32 +629,39 @@ export function TodoNode({
                   <ZoomIn className="icon-xs" aria-hidden="true" />
                   Focus
                 </button>
-                <button
-                  className="node-menu-item"
-                  onClick={() => {
-                    dateInputRef.current?.showPicker?.()
-                  }}
-                >
-                  <CalendarDays className="icon-xs" aria-hidden="true" />
-                  {node.dueDate
-                    ? `Due: ${formatDueDate(node.dueDate)}`
-                    : 'Set due date'}
-                </button>
-                <input
-                  ref={dateInputRef}
-                  type="date"
-                  className="date-input-hidden"
-                  value={node.dueDate ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setTree((prev) =>
-                      upd(prev, node.id, (target) => {
-                        target.dueDate = val || undefined
-                      }),
-                    )
-                    setMenuOpen(false)
-                  }}
-                />
+                <div className="node-menu-item-wrapper">
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    className="date-input-overlay"
+                    aria-label={
+                      node.dueDate
+                        ? `Due: ${formatDueDate(node.dueDate)}`
+                        : 'Set due date'
+                    }
+                    value={node.dueDate ?? ''}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      setTree((prev) =>
+                        upd(prev, node.id, (target) => {
+                          target.dueDate = val || undefined
+                        }),
+                      )
+                      setMenuOpen(false)
+                    }}
+                  />
+                  <button
+                    className="node-menu-item"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    type="button"
+                  >
+                    <CalendarDays className="icon-xs" aria-hidden="true" />
+                    {node.dueDate
+                      ? `Due: ${formatDueDate(node.dueDate)}`
+                      : 'Set due date'}
+                  </button>
+                </div>
                 {node.dueDate && (
                   <button
                     className="node-menu-item"
