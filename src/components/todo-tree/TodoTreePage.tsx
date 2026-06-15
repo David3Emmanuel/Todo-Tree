@@ -591,6 +591,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     if (nextZoom) {
       setZoomFromUi(nextZoom)
     }
+    setView('tree')
 
     closeFocus()
   }
@@ -742,6 +743,8 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     openHideMenu,
     openFocus,
     closeFocus,
+    view,
+    setView,
   }
 
   return (

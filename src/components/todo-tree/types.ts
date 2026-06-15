@@ -58,6 +58,8 @@ export type CtxValue = {
   openHideMenu: (nodeId: string) => void
   openFocus: (nodeId: string) => void
   closeFocus: () => void
+  view: ViewMode
+  setView: Dispatch<SetStateAction<ViewMode>>
 }
 
 export type PersistedState = {

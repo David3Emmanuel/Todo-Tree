@@ -162,7 +162,7 @@ function HarvestItem({
 }
 
 export function HarvestView() {
-  const { tree, setTree, setZoom } = useTodoCtx()
+  const { tree, setTree, setZoom, setView } = useTodoCtx()
   const sections = getHarvestSections(tree)
   const { focusRoot, openFocus, closeFocus } = useFocus({ tree })
 
@@ -176,6 +176,7 @@ export function HarvestView() {
     if (nextZoom) {
       setZoom(nextZoom)
     }
+    setView('tree')
 
     closeFocus()
   }
