@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect } from 'react'
-import { X, User, LogIn, LogOut, RefreshCw } from 'lucide-react'
+import { X, User, LogIn, LogOut, RefreshCw, Copy, Download } from 'lucide-react'
 import type { SyncStatus } from '../todo-tree/usePersistence'
 import { useNavigate } from '@tanstack/react-router'
 import { useAuth } from '../auth/auth-context'
@@ -17,7 +17,7 @@ interface MainMenuProps {
   onSync?: () => void
 }
 
-export function MainMenu({ open, onClose, children, history, syncStatus, onSync }: MainMenuProps) {
+export function MainMenu({ open, onClose, children, nodes, history, syncStatus, onSync }: MainMenuProps) {
   const { user, isAuthenticated, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -41,6 +41,52 @@ export function MainMenu({ open, onClose, children, history, syncStatus, onSync 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   }, [open, onClose])
+
+  const formatTreeAsText = (treeNodes: TreeNode[], depth = 0): string => {
+    let result = ''
+    for (const node of treeNodes) {
+      const indent = '  '.repeat(depth)
+      const isFolder = node.kind === 'folder'
+      const status = isFolder ? '[Folder]' : node.completed ? '[x]' : '[ ]'
+      const due = node.dueDate ? ` (Due: ${node.dueDate})` : ''
+      result += `${indent}${status} ${node.text}${due}\n`
+      if (node.children && node.children.length > 0) {
+        result += formatTreeAsText(node.children, depth + 1)
+      }
+    }
+    return result
+  }
+
+  const copyTextTree = () => {
+    const textStr = formatTreeAsText(nodes)
+    navigator.clipboard.writeText(textStr || '(no tasks)').then(() => {
+      alert('Task tree copied as formatted text!')
+    }).catch(err => {
+      alert('Failed to copy: ' + err)
+    })
+  }
+
+  const copyJSON = () => {
+    const dataStr = JSON.stringify(nodes, null, 2)
+    navigator.clipboard.writeText(dataStr).then(() => {
+      alert('Task tree copied as JSON!')
+    }).catch(err => {
+      alert('Failed to copy: ' + err)
+    })
+  }
+
+  const downloadJSON = () => {
+    const dataStr = JSON.stringify(nodes, null, 2)
+    const blob = new Blob([dataStr], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `todo-tree-backup-${new Date().toISOString().slice(0, 10)}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <>
@@ -155,6 +201,25 @@ export function MainMenu({ open, onClose, children, history, syncStatus, onSync 
           <section className="main-menu-section">
             <div className="main-menu-section-title">14-day activity</div>
             <ActivityGraph history={history} />
+          </section>
+
+          {/* Backup & Export */}
+          <section className="main-menu-section">
+            <div className="main-menu-section-title">Backup & Export</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <button className="menu-sync-btn" onClick={copyTextTree}>
+                <Copy className="icon-sm" aria-hidden="true" />
+                Copy Tree (Text)
+              </button>
+              <button className="menu-sync-btn" onClick={copyJSON}>
+                <Copy className="icon-sm" aria-hidden="true" />
+                Copy Tree (JSON)
+              </button>
+              <button className="menu-sync-btn" onClick={downloadJSON}>
+                <Download className="icon-sm" aria-hidden="true" />
+                Download JSON Backup
+              </button>
+            </div>
           </section>
 
           {/* Shortcuts */}
