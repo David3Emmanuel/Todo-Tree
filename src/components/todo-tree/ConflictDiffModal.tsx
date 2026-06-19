@@ -1,16 +1,17 @@
-import { useMemo } from 'react'
-import { Check, Cloud, FolderTree, Monitor } from 'lucide-react'
+import { useMemo, useState, useEffect } from 'react'
+import { Check, Cloud, FolderTree, Monitor, GitMerge, Eye } from 'lucide-react'
 import type { LoginReconcileConflict } from './usePersistence'
 import {
   buildDiffedTree,
   computeDiffSummary,
   flattenNodes,
   getGhostRoots,
+  contentEqual,
   type DiffedNode,
   type DiffSummary,
 } from './treeDiff'
 import { classifyDueDate, formatDueDate } from './tree-utils'
-import type { TreeNode } from './types'
+import type { TreeNode, SuggestionHideMap } from './types'
 
 function formatTimeAgo(ms: number | undefined): string {
   if (!ms) return 'unknown time'
@@ -207,12 +208,340 @@ function DiffPanel({
   )
 }
 
+export type MergeNode = {
+  id: string
+  localNode?: TreeNode
+  remoteNode?: TreeNode
+  status: 'unchanged' | 'conflict-content' | 'only-local' | 'only-remote'
+  children: MergeNode[]
+}
+
+function mergeNodeLists(localList: TreeNode[], remoteList: TreeNode[]): string[] {
+  const ids = new Set<string>()
+  const result: string[] = []
+
+  for (const n of localList) {
+    if (!ids.has(n.id)) {
+      ids.add(n.id)
+      result.push(n.id)
+    }
+  }
+
+  for (const n of remoteList) {
+    if (!ids.has(n.id)) {
+      const prevIdx = remoteList.indexOf(n) - 1
+      let targetIdx = -1
+      if (prevIdx >= 0) {
+        const prevId = remoteList[prevIdx].id
+        targetIdx = result.indexOf(prevId)
+      }
+      if (targetIdx !== -1) {
+        result.splice(targetIdx + 1, 0, n.id)
+        ids.add(n.id)
+      } else {
+        result.push(n.id)
+        ids.add(n.id)
+      }
+    }
+  }
+  return result
+}
+
+export function buildMergeTree(
+  localList: TreeNode[],
+  remoteList: TreeNode[],
+): MergeNode[] {
+  const mergedIds = mergeNodeLists(localList, remoteList)
+  return mergedIds.map((id) => {
+    const localNode = localList.find((n) => n.id === id)
+    const remoteNode = remoteList.find((n) => n.id === id)
+
+    let status: MergeNode['status']
+    if (localNode && remoteNode) {
+      status = contentEqual(localNode, remoteNode) ? 'unchanged' : 'conflict-content'
+    } else if (localNode) {
+      status = 'only-local'
+    } else {
+      status = 'only-remote'
+    }
+
+    const children = buildMergeTree(
+      localNode ? localNode.children : [],
+      remoteNode ? remoteNode.children : [],
+    )
+
+    return {
+      id,
+      localNode,
+      remoteNode,
+      status,
+      children,
+    }
+  })
+}
+
+function resolveMerge(
+  mergeNodes: MergeNode[],
+  choices: Record<string, 'local' | 'remote'>,
+): TreeNode[] {
+  const result: TreeNode[] = []
+
+  for (const mn of mergeNodes) {
+    const choice = choices[mn.id] ?? (mn.localNode ? 'local' : 'remote')
+
+    if (mn.status === 'only-local' && choice === 'remote') {
+      continue
+    }
+    if (mn.status === 'only-remote' && choice === 'local') {
+      continue
+    }
+
+    const sourceNode = choice === 'local' ? mn.localNode : mn.remoteNode
+    if (!sourceNode) {
+      continue
+    }
+
+    const children = resolveMerge(mn.children, choices)
+
+    result.push({
+      ...sourceNode,
+      children,
+    })
+  }
+
+  return result
+}
+
+function resolveSuggestionHides(
+  localHides: SuggestionHideMap,
+  remoteHides: SuggestionHideMap,
+  mergedTree: TreeNode[],
+): SuggestionHideMap {
+  const merged: SuggestionHideMap = { ...remoteHides, ...localHides }
+  const flatMergedIds = flattenNodes(mergedTree)
+  const result: SuggestionHideMap = {}
+  for (const [key, val] of Object.entries(merged)) {
+    if (flatMergedIds.has(key)) {
+      result[key] = val
+    }
+  }
+  return result
+}
+
+function MergeNodeRow({
+  mn,
+  choices,
+  onChoose,
+  depth = 0,
+}: {
+  mn: MergeNode
+  choices: Record<string, 'local' | 'remote'>
+  onChoose: (nodeId: string, choice: 'local' | 'remote') => void
+  depth?: number
+}) {
+  const { id, localNode, remoteNode, status, children } = mn
+  const currentChoice = choices[id] ?? (localNode ? 'local' : 'remote')
+
+  const isFolder = (localNode?.kind ?? remoteNode?.kind) === 'folder'
+  const localText = localNode?.text || '(untitled)'
+  const remoteText = remoteNode?.text || '(untitled)'
+
+  if (status === 'unchanged') {
+    return (
+      <>
+        <div
+          className="merge-status-unchanged"
+          style={{ paddingLeft: `${0.55 + depth * 1.1}rem` }}
+        >
+          <span className="merge-node-icon-inline" style={{ marginRight: '0.35rem' }}>
+            {isFolder ? <FolderTree size={11} /> : <span className="diff-node-dot" />}
+          </span>
+          <span>{localText}</span>
+        </div>
+        {children.map((child) => (
+          <MergeNodeRow
+            key={child.id}
+            mn={child}
+            choices={choices}
+            onChoose={onChoose}
+            depth={depth + 1}
+          />
+        ))}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <div
+        className={`merge-node-card merge-status-${status}`}
+        style={{ marginLeft: `${depth * 1.1}rem` }}
+      >
+        <div className="merge-card-header">
+          <div className="merge-card-meta">
+            <span className="merge-node-icon-inline">
+              {isFolder ? <FolderTree size={12} /> : <span className="diff-node-dot" />}
+            </span>
+            <span className={`merge-status-badge badge-${
+              status === 'conflict-content'
+                ? 'conflict'
+                : status === 'only-local'
+                ? 'device-only'
+                : 'cloud-only'
+            }`}>
+              {status === 'conflict-content'
+                ? 'Modified in both'
+                : status === 'only-local'
+                ? 'On Device Only'
+                : 'In Cloud Only'}
+            </span>
+          </div>
+        </div>
+
+        {status === 'conflict-content' ? (
+          <div className="merge-options-grid">
+            <div
+              className={`merge-option-row${currentChoice === 'local' ? ' is-selected' : ''}`}
+              onClick={() => onChoose(id, 'local')}
+            >
+              <div className="merge-option-content">
+                <span className={`merge-checkbox-dummy${currentChoice === 'local' ? ' checked' : ''}`} />
+                <span className="merge-option-text">{localText}</span>
+                {localNode?.dueDate && (
+                  <span className={`due-badge due-badge--${classifyDueDate(localNode.dueDate)}`}>
+                    {formatDueDate(localNode.dueDate)}
+                  </span>
+                )}
+                {localNode?.completed && <span className="diff-badge diff-badge-added">completed</span>}
+                {localNode?.starred && <span style={{ color: '#e8c547' }}>★</span>}
+              </div>
+              <span className="merge-badge-source badge-source-local">Device</span>
+            </div>
+
+            <div
+              className={`merge-option-row${currentChoice === 'remote' ? ' is-selected' : ''}`}
+              onClick={() => onChoose(id, 'remote')}
+            >
+              <div className="merge-option-content">
+                <span className={`merge-checkbox-dummy${currentChoice === 'remote' ? ' checked' : ''}`} />
+                <span className="merge-option-text">{remoteText}</span>
+                {remoteNode?.dueDate && (
+                  <span className={`due-badge due-badge--${classifyDueDate(remoteNode.dueDate)}`}>
+                    {formatDueDate(remoteNode.dueDate)}
+                  </span>
+                )}
+                {remoteNode?.completed && <span className="diff-badge diff-badge-added">completed</span>}
+                {remoteNode?.starred && <span style={{ color: '#e8c547' }}>★</span>}
+              </div>
+              <span className="merge-badge-source badge-source-remote">Cloud</span>
+            </div>
+          </div>
+        ) : status === 'only-local' ? (
+          <div className="merge-options-grid">
+            <div
+              className={`merge-option-row${currentChoice === 'local' ? ' is-selected' : ' is-discarded'}`}
+              onClick={() => onChoose(id, currentChoice === 'local' ? 'remote' : 'local')}
+            >
+              <div className="merge-option-content">
+                <span className={`merge-checkbox-dummy${currentChoice === 'local' ? ' checked' : ''}`} />
+                <span className="merge-option-text">{localText}</span>
+                {localNode?.dueDate && (
+                  <span className={`due-badge due-badge--${classifyDueDate(localNode.dueDate)}`}>
+                    {formatDueDate(localNode.dueDate)}
+                  </span>
+                )}
+                {localNode?.completed && <span className="diff-badge diff-badge-added">completed</span>}
+                {localNode?.starred && <span style={{ color: '#e8c547' }}>★</span>}
+              </div>
+              <div className="merge-option-actions">
+                <span className="merge-badge-source badge-source-local">Device</span>
+                <button
+                  type="button"
+                  className={`merge-action-btn${currentChoice === 'local' ? ' is-active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChoose(id, 'local')
+                  }}
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  className={`merge-action-btn${currentChoice === 'remote' ? ' is-danger-active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChoose(id, 'remote')
+                  }}
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="merge-options-grid">
+            <div
+              className={`merge-option-row${currentChoice === 'remote' ? ' is-selected' : ' is-discarded'}`}
+              onClick={() => onChoose(id, currentChoice === 'remote' ? 'local' : 'remote')}
+            >
+              <div className="merge-option-content">
+                <span className={`merge-checkbox-dummy${currentChoice === 'remote' ? ' checked' : ''}`} />
+                <span className="merge-option-text">{remoteText}</span>
+                {remoteNode?.dueDate && (
+                  <span className={`due-badge due-badge--${classifyDueDate(remoteNode.dueDate)}`}>
+                    {formatDueDate(remoteNode.dueDate)}
+                  </span>
+                )}
+                {remoteNode?.completed && <span className="diff-badge diff-badge-added">completed</span>}
+                {remoteNode?.starred && <span style={{ color: '#e8c547' }}>★</span>}
+              </div>
+              <div className="merge-option-actions">
+                <span className="merge-badge-source badge-source-remote">Cloud</span>
+                <button
+                  type="button"
+                  className={`merge-action-btn${currentChoice === 'remote' ? ' is-active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChoose(id, 'remote')
+                  }}
+                >
+                  Keep
+                </button>
+                <button
+                  type="button"
+                  className={`merge-action-btn${currentChoice === 'local' ? ' is-danger-active' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onChoose(id, 'local')
+                  }}
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+      {children.map((child) => (
+        <MergeNodeRow
+          key={child.id}
+          mn={child}
+          choices={choices}
+          onChoose={onChoose}
+          depth={depth + 1}
+        />
+      ))}
+    </>
+  )
+}
+
 type Props = {
   conflict: LoginReconcileConflict
   isResolving: boolean
   error: string | null
   onKeepLocal: () => void
   onKeepCloud: () => void
+  onResolveCustomMerge: (mergedState: { tree: TreeNode[]; suggestionHides: SuggestionHideMap }) => void
   onDismiss: () => void
 }
 
@@ -222,9 +551,11 @@ export function ConflictDiffModal({
   error,
   onKeepLocal,
   onKeepCloud,
+  onResolveCustomMerge,
   onDismiss,
 }: Props) {
   const { localState, remoteState } = conflict
+  const [activeTab, setActiveTab] = useState<'interactive' | 'compare'>('interactive')
 
   const localFlat = useMemo(
     () => flattenNodes(localState.tree),
@@ -265,6 +596,95 @@ export function ConflictDiffModal({
   const localIsNewer =
     (localState.localUpdatedAtMs ?? 0) >= (remoteState.serverUpdatedAtMs ?? 0)
 
+  const mergeTree = useMemo(
+    () => buildMergeTree(localState.tree, remoteState.tree),
+    [localState.tree, remoteState.tree],
+  )
+
+  const [choices, setChoices] = useState<Record<string, 'local' | 'remote'>>({})
+
+  useEffect(() => {
+    const initial: Record<string, 'local' | 'remote'> = {}
+    const walk = (nodes: MergeNode[]) => {
+      for (const node of nodes) {
+        if (node.status === 'conflict-content') {
+          initial[node.id] = localIsNewer ? 'local' : 'remote'
+        } else if (node.status === 'only-local') {
+          initial[node.id] = 'local'
+        } else if (node.status === 'only-remote') {
+          initial[node.id] = 'remote'
+        }
+        walk(node.children)
+      }
+    }
+    walk(mergeTree)
+    setChoices(initial)
+  }, [conflict, mergeTree, localIsNewer])
+
+  const handleChoose = (nodeId: string, choice: 'local' | 'remote') => {
+    setChoices((prev) => ({
+      ...prev,
+      [nodeId]: choice,
+    }))
+  }
+
+  const handleSelectAllLocal = () => {
+    const updated = { ...choices }
+    const walk = (nodes: MergeNode[]) => {
+      for (const node of nodes) {
+        if (node.status !== 'unchanged') {
+          updated[node.id] = 'local'
+        }
+        walk(node.children)
+      }
+    }
+    walk(mergeTree)
+    setChoices(updated)
+  }
+
+  const handleSelectAllRemote = () => {
+    const updated = { ...choices }
+    const walk = (nodes: MergeNode[]) => {
+      for (const node of nodes) {
+        if (node.status !== 'unchanged') {
+          updated[node.id] = 'remote'
+        }
+        walk(node.children)
+      }
+    }
+    walk(mergeTree)
+    setChoices(updated)
+  }
+
+  const conflictCounts = useMemo(() => {
+    let content = 0
+    let localOnly = 0
+    let remoteOnly = 0
+    const walk = (nodes: MergeNode[]) => {
+      for (const node of nodes) {
+        if (node.status === 'conflict-content') content++
+        if (node.status === 'only-local') localOnly++
+        if (node.status === 'only-remote') remoteOnly++
+        walk(node.children)
+      }
+    }
+    walk(mergeTree)
+    return { content, localOnly, remoteOnly, total: content + localOnly + remoteOnly }
+  }, [mergeTree])
+
+  const handleConfirmMerge = () => {
+    const mergedTree = resolveMerge(mergeTree, choices)
+    const mergedHides = resolveSuggestionHides(
+      localState.suggestionHides,
+      remoteState.suggestionHides,
+      mergedTree,
+    )
+    onResolveCustomMerge({
+      tree: mergedTree,
+      suggestionHides: mergedHides,
+    })
+  }
+
   return (
     <div className="reconcile-modal-backdrop" onClick={onDismiss}>
       <section
@@ -280,8 +700,7 @@ export function ConflictDiffModal({
             Your device and the cloud have different versions
           </h2>
           <p className="reconcile-copy">
-            Both were updated since the last sync. Review the differences below,
-            then choose which version to keep.
+            Both were updated since the last sync. Use the line-by-line merge tool to pick the correct version of each item, or compare the full versions side-by-side.
           </p>
         </div>
 
@@ -291,41 +710,137 @@ export function ConflictDiffModal({
           </div>
         )}
 
-        <div className="diff-panels">
-          <DiffPanel
-            label="On this device"
-            icon={<Monitor size={13} />}
-            updatedAtMs={localState.localUpdatedAtMs}
-            diffed={localDiffed}
-            summary={localSummary}
-            ghostRoots={localGhostRoots}
-            isRecommended={localIsNewer}
-            isPrimary={localIsNewer}
-            onChoose={onKeepLocal}
-            isDisabled={isResolving}
-          />
-          <DiffPanel
-            label="In the cloud"
-            icon={<Cloud size={13} />}
-            updatedAtMs={remoteState.serverUpdatedAtMs}
-            diffed={remoteDiffed}
-            summary={remoteSummary}
-            ghostRoots={remoteGhostRoots}
-            isRecommended={!localIsNewer}
-            isPrimary={!localIsNewer}
-            onChoose={onKeepCloud}
-            isDisabled={isResolving}
-          />
+        <div className="tabs">
+          <button
+            type="button"
+            className={`tab ${activeTab === 'interactive' ? 'active' : ''}`}
+            onClick={() => setActiveTab('interactive')}
+          >
+            <GitMerge size={12} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
+            Line-by-Line Merge
+          </button>
+          <button
+            type="button"
+            className={`tab ${activeTab === 'compare' ? 'active' : ''}`}
+            onClick={() => setActiveTab('compare')}
+          >
+            <Eye size={12} style={{ verticalAlign: 'middle', marginRight: '0.25rem' }} />
+            Side-by-Side Diff
+          </button>
         </div>
 
-        <div className="reconcile-actions">
-          <button
-            className="reconcile-btn reconcile-btn-ghost"
-            onClick={onDismiss}
-            disabled={isResolving}
-          >
-            Decide later
-          </button>
+        {activeTab === 'interactive' ? (
+          <div className="merge-workspace">
+            <div className="merge-instructions">
+              Review the tree below. Click on the version of each item you want to keep.
+              By default, newly added tasks from both sides are kept.
+            </div>
+
+            <div className="merge-summary-banner">
+              <span>
+                <strong>{conflictCounts.total}</strong> differing items: {conflictCounts.content} content conflicts,{' '}
+                {conflictCounts.localOnly + conflictCounts.remoteOnly} additions.
+              </span>
+            </div>
+
+            <div className="merge-tree-container">
+              {mergeTree.map((mn) => (
+                <MergeNodeRow
+                  key={mn.id}
+                  mn={mn}
+                  choices={choices}
+                  onChoose={handleChoose}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="diff-panels">
+            <DiffPanel
+              label="On this device"
+              icon={<Monitor size={13} />}
+              updatedAtMs={localState.localUpdatedAtMs}
+              diffed={localDiffed}
+              summary={localSummary}
+              ghostRoots={localGhostRoots}
+              isRecommended={localIsNewer}
+              isPrimary={localIsNewer}
+              onChoose={onKeepLocal}
+              isDisabled={isResolving}
+            />
+            <DiffPanel
+              label="In the cloud"
+              icon={<Cloud size={13} />}
+              updatedAtMs={remoteState.serverUpdatedAtMs}
+              diffed={remoteDiffed}
+              summary={remoteSummary}
+              ghostRoots={remoteGhostRoots}
+              isRecommended={!localIsNewer}
+              isPrimary={!localIsNewer}
+              onChoose={onKeepCloud}
+              isDisabled={isResolving}
+            />
+          </div>
+        )}
+
+        <div className="reconcile-actions" style={{ marginTop: '0.4rem' }}>
+          {activeTab === 'interactive' ? (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                width: '100%',
+                flexWrap: 'wrap',
+                gap: '0.5rem',
+              }}
+            >
+              <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="reconcile-btn reconcile-btn-primary"
+                  onClick={handleConfirmMerge}
+                  disabled={isResolving}
+                >
+                  Confirm and Sync Merge
+                </button>
+                <button
+                  type="button"
+                  className="reconcile-btn reconcile-btn-ghost"
+                  onClick={onDismiss}
+                  disabled={isResolving}
+                >
+                  Decide later
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="merge-action-btn"
+                  onClick={handleSelectAllLocal}
+                  disabled={isResolving}
+                >
+                  Use Device All
+                </button>
+                <button
+                  type="button"
+                  className="merge-action-btn"
+                  onClick={handleSelectAllRemote}
+                  disabled={isResolving}
+                >
+                  Use Cloud All
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              className="reconcile-btn reconcile-btn-ghost"
+              onClick={onDismiss}
+              disabled={isResolving}
+            >
+              Decide later
+            </button>
+          )}
         </div>
       </section>
     </div>

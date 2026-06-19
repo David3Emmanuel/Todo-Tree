@@ -2836,3 +2836,267 @@ body,
   background: #222120;
   border-radius: 0.125rem;
 }
+
+/* ── Unified Conflict Merge Workspace ────────────────── */
+.merge-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.merge-instructions {
+  background: rgba(207, 125, 60, 0.08);
+  border: 0.0625rem solid rgba(207, 125, 60, 0.25);
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  color: #ccb8a4;
+}
+
+.merge-summary-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #1b1714;
+  border: 0.0625rem solid #2e261e;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.7rem;
+  color: #efe3d7;
+}
+
+.merge-tree-container {
+  border: 0.0625rem solid #282018;
+  border-radius: 0.75rem;
+  background: rgba(14, 11, 9, 0.4);
+  padding: 0.65rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.merge-node-card {
+  border-radius: 0.6rem;
+  border: 0.0625rem solid transparent;
+  padding: 0.55rem 0.65rem;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.merge-status-unchanged {
+  color: #7a7068;
+  font-size: 0.68rem;
+  padding: 0.15rem 0.65rem;
+  opacity: 0.85;
+}
+
+.merge-status-conflict-content {
+  border-color: rgba(230, 160, 60, 0.35);
+  background: rgba(230, 160, 60, 0.04);
+}
+
+.merge-status-only-local {
+  border: 0.0625rem dashed rgba(74, 140, 80, 0.35);
+  background: rgba(74, 140, 80, 0.02);
+}
+
+.merge-status-only-remote {
+  border: 0.0625rem dashed rgba(90, 120, 210, 0.35);
+  background: rgba(90, 120, 210, 0.02);
+}
+
+.merge-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.merge-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.merge-status-badge {
+  font-size: 0.54rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 0.35rem;
+}
+
+.badge-conflict {
+  background: rgba(230, 160, 60, 0.15);
+  color: #e5b06a;
+  border: 0.0625rem solid rgba(230, 160, 60, 0.3);
+}
+
+.badge-device-only {
+  background: rgba(74, 140, 80, 0.15);
+  color: #84c48a;
+  border: 0.0625rem solid rgba(74, 140, 80, 0.3);
+}
+
+.badge-cloud-only {
+  background: rgba(90, 120, 210, 0.15);
+  color: #8faef0;
+  border: 0.0625rem solid rgba(90, 120, 210, 0.3);
+}
+
+.merge-options-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.merge-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.55rem;
+  border: 0.0625rem solid #2e261e;
+  border-radius: 0.45rem;
+  background: #191614;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.merge-option-row:hover {
+  border-color: rgba(207, 125, 60, 0.45);
+}
+
+.merge-option-row.is-selected {
+  border-color: #cf7d3c;
+  background: rgba(207, 125, 60, 0.1);
+  box-shadow: 0 0 8px rgba(207, 125, 60, 0.15);
+}
+
+.merge-option-row.is-discarded {
+  opacity: 0.35;
+  text-decoration: line-through;
+  background: transparent;
+}
+
+.merge-option-content {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.6875rem;
+  color: #e4d4c2;
+  flex: 1;
+  min-width: 0;
+}
+
+.merge-option-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.merge-option-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.merge-badge-source {
+  font-size: 0.54rem;
+  padding: 0.05rem 0.28rem;
+  border-radius: 100rem;
+  background: #282018;
+  color: #a39589;
+  border: 0.0625rem solid #3a2e24;
+}
+
+.badge-source-local {
+  border-color: rgba(74, 140, 80, 0.3);
+  color: #84c48a;
+}
+
+.badge-source-remote {
+  border-color: rgba(90, 120, 210, 0.3);
+  color: #8faef0;
+}
+
+.merge-action-btn {
+  border: 0.0625rem solid #322820;
+  background: #1b1714;
+  color: #c0b4a7;
+  border-radius: 0.4rem;
+  padding: 0.24rem 0.48rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.62rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.merge-action-btn:hover {
+  border-color: #cf7d3c;
+  color: #efe3d7;
+}
+
+.merge-action-btn.is-active {
+  background: #cf7d3c;
+  color: #1a130e;
+  border-color: #cf7d3c;
+  font-weight: 700;
+}
+
+.merge-action-btn.is-danger-active {
+  background: #9d3f3f;
+  color: #efe3d7;
+  border-color: #9d3f3f;
+  font-weight: 700;
+}
+
+.merge-checkbox-dummy {
+  width: 12px;
+  height: 12px;
+  border: 0.0625rem solid #4a3c30;
+  border-radius: 3px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.merge-checkbox-dummy.checked {
+  background: #cf7d3c;
+  border-color: #cf7d3c;
+  position: relative;
+}
+
+.merge-checkbox-dummy.checked::after {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 1px;
+  width: 4px;
+  height: 6px;
+  border: solid #1a130e;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.merge-node-icon-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a7d72;
+}
+
+.merge-conflict-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #e5b06a;
+  font-size: 0.62rem;
+}
+

@@ -47,6 +47,7 @@ import type {
   Breadcrumb,
   CtxValue,
   SuggestionHideRule,
+  SuggestionHideMap,
   TreeNode,
 } from './types'
 import {
@@ -733,6 +734,23 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
     }
   }
 
+  const handleResolveCustomMerge = async (mergedState: {
+    tree: TreeNode[]
+    suggestionHides: SuggestionHideMap
+  }) => {
+    setConflictResolutionError(null)
+    setIsResolvingConflict(true)
+
+    try {
+      await resolveLoginReconcileConflict(mergedState)
+      setIsConflictModalDismissed(false)
+    } catch {
+      setConflictResolutionError('Could not apply your merged version. Please retry.')
+    } finally {
+      setIsResolvingConflict(false)
+    }
+  }
+
   const ctx: CtxValue = {
     tree,
     setTree,
@@ -1164,6 +1182,7 @@ export function TodoTreePage({ pathSegments }: { pathSegments: string[] }) {
                 onKeepCloud={() => {
                   void handleResolveConflict('keep-cloud')
                 }}
+                onResolveCustomMerge={handleResolveCustomMerge}
                 onDismiss={() => setIsConflictModalDismissed(true)}
               />
             )}

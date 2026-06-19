@@ -27,7 +27,7 @@ export function flattenNodes(nodes: TreeNode[]): Map<string, TreeNode> {
   return map
 }
 
-function contentEqual(a: TreeNode, b: TreeNode): boolean {
+export function contentEqual(a: TreeNode, b: TreeNode): boolean {
   return (
     a.text === b.text &&
     a.kind === b.kind &&
