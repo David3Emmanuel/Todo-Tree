@@ -2802,6 +2802,19 @@ body,
   color: #f0e7dc;
 }
 
+.tree-search-option.completed {
+  opacity: 0.55;
+}
+
+.tree-search-option.completed .tree-search-option-main {
+  text-decoration: line-through;
+}
+
+.tree-search-option.completed:hover,
+.tree-search-option.completed.selected {
+  opacity: 0.75;
+}
+
 .tree-search-option-main {
   font-size: 0.68rem;
   font-weight: 600;

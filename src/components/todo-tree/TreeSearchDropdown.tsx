@@ -53,6 +53,13 @@ export function TreeSearchDropdown({
     if (!q) return []
     return allOptions
       .filter((opt) => opt.node.text.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const aCompleted = Boolean(a.node.completed)
+        const bCompleted = Boolean(b.node.completed)
+        if (aCompleted && !bCompleted) return 1
+        if (!aCompleted && bCompleted) return -1
+        return 0
+      })
       .slice(0, 10)
   }, [query, allOptions])
 
@@ -143,7 +150,7 @@ export function TreeSearchDropdown({
             return (
               <button
                 key={opt.node.id}
-                className={`tree-search-option${selectedId === opt.node.id ? ' selected' : ''}`}
+                className={`tree-search-option${selectedId === opt.node.id ? ' selected' : ''}${opt.node.completed ? ' completed' : ''}`}
                 type="button"
                 onClick={() => confirmOption(opt)}
                 role="option"
