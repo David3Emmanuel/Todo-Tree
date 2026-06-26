@@ -766,32 +766,90 @@ export function moveN(
 export function collapseAll(tree: TreeNode[]): TreeNode[] {
   const clone = dc(tree)
 
-  const walk = (nodes: TreeNode[]): void => {
+  // Check if there is any completed node with children that is currently expanded
+  const hasExpandedCompleted = (nodes: TreeNode[]): boolean => {
     for (const node of nodes) {
-      node.collapsed = true
-      if (node.children.length) {
-        walk(node.children)
+      if (node.completed && node.children.length > 0 && !node.collapsed) {
+        return true
+      }
+      if (hasExpandedCompleted(node.children)) {
+        return true
       }
     }
+    return false
   }
 
-  walk(clone)
+  if (hasExpandedCompleted(clone)) {
+    // Phase 1: collapse only completed nodes (and their descendants)
+    const walkCompleted = (nodes: TreeNode[]): void => {
+      for (const node of nodes) {
+        if (node.completed) {
+          node.collapsed = true
+        }
+        if (node.children.length) {
+          walkCompleted(node.children)
+        }
+      }
+    }
+    walkCompleted(clone)
+  } else {
+    // Phase 2: collapse all nodes
+    const walkEverything = (nodes: TreeNode[]): void => {
+      for (const node of nodes) {
+        node.collapsed = true
+        if (node.children.length) {
+          walkEverything(node.children)
+        }
+      }
+    }
+    walkEverything(clone)
+  }
+
   return clone
 }
 
 export function expandAll(tree: TreeNode[]): TreeNode[] {
   const clone = dc(tree)
 
-  const walk = (nodes: TreeNode[]): void => {
+  // Check if there is any incomplete node with children that is currently collapsed
+  const hasCollapsedIncomplete = (nodes: TreeNode[]): boolean => {
     for (const node of nodes) {
-      node.collapsed = false
-      if (node.children.length) {
-        walk(node.children)
+      if (!node.completed && node.children.length > 0 && node.collapsed) {
+        return true
+      }
+      if (hasCollapsedIncomplete(node.children)) {
+        return true
       }
     }
+    return false
   }
 
-  walk(clone)
+  if (hasCollapsedIncomplete(clone)) {
+    // Phase 1: expand only incomplete nodes
+    const walkIncomplete = (nodes: TreeNode[]): void => {
+      for (const node of nodes) {
+        if (!node.completed) {
+          node.collapsed = false
+        }
+        if (node.children.length) {
+          walkIncomplete(node.children)
+        }
+      }
+    }
+    walkIncomplete(clone)
+  } else {
+    // Phase 2: expand all nodes
+    const walkEverything = (nodes: TreeNode[]): void => {
+      for (const node of nodes) {
+        node.collapsed = false
+        if (node.children.length) {
+          walkEverything(node.children)
+        }
+      }
+    }
+    walkEverything(clone)
+  }
+
   return clone
 }
 
